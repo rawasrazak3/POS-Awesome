@@ -4,6 +4,7 @@
     <Drafts></Drafts>
     <SalesOrders></SalesOrders>
     <Returns></Returns>
+    <Tickets></Tickets>
     <NewAddress></NewAddress>
     <MpesaPayments></MpesaPayments>
     <Variants></Variants>
@@ -75,6 +76,7 @@ import ClosingDialog from './ClosingDialog.vue';
 import NewAddress from './NewAddress.vue';
 import Variants from './Variants.vue';
 import Returns from './Returns.vue';
+import Tickets from './Tickets.vue';
 import MpesaPayments from './Mpesa-Payments.vue';
 
 export default {
@@ -96,7 +98,7 @@ export default {
     Payments,
     Drafts,
     ClosingDialog,
-
+    Tickets,
     Returns,
     PosOffers,
     PosCoupons,

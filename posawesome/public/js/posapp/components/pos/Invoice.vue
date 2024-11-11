@@ -32,11 +32,43 @@
         </v-col>
         <v-col
           v-if="!pos_profile.posa_allow_sales_order"
-          cols="12"
+          cols="9"
           class="pb-2"
         >
           <Customer></Customer>
+
         </v-col>
+        <v-col
+        cols="1"
+        >
+        <div>
+
+          <v-text-field v-if="customer"
+          color="primary"
+          :label="frappe._('token')"
+          background-color="white"
+          hide-details
+          v-model="customer_token"
+          dense
+          disabled
+          ></v-text-field>              
+          </div>
+        </v-col>
+        <v-col
+        cols="2"
+        class="flex justify-center items-center w-full h-full"
+        >
+        <v-btn
+            block
+            class="pa-0"
+            :class="{ 'disable-events': !customer }"
+                color=""
+                dark
+                @click="open_ticket"
+                >{{ __("Tickets") }}</v-btn
+              >
+        </v-col>
+
         <v-col v-if="pos_profile.posa_allow_sales_order" cols="3" class="pb-2">
           <v-select
             dense
@@ -845,6 +877,8 @@ export default {
       return_doc: "",
       customer: "",
       customer_info: "",
+      customer_ticket:[],
+      customer_token:0,
       discount_amount: 0,
       additional_discount_percentage: 0,
       total_tax: 0,
@@ -924,6 +958,25 @@ export default {
   },
 
   methods: {
+
+      update_ticket_and_token() {
+    // Add the logic to update customer_ticket and customer_token
+    if (this.customer) {
+      frappe.call({
+        method: "posawesome.posawesome.api.posapp.get_ticket_and_token",
+        args: { customer: this.customer },
+        async: true,
+        callback: function (r) {
+          if (r.message) {
+            this.customer_ticket = r.message.custom_tickets;
+            this.customer_token = r.message.custom_token;
+            console.log(r.message.custom_tickets);
+          }
+        }.bind(this), // Bind 'this' to the Vue component
+      });
+    }
+    },
+
     remove_item(item) {
       const index = this.items.findIndex(
         (el) => el.posa_row_id == item.posa_row_id
@@ -1700,6 +1753,18 @@ export default {
       evntBus.$emit("open_returns", this.pos_profile.company);
     },
 
+    open_ticket() {
+      if (this.customer_ticket.length) {
+            evntBus.$emit("open_ticket", [...this.customer_ticket]); // Shallow copy
+          } else {
+            evntBus.$emit("show_mesage", {
+              text: __(`No active ticket found for {0}`, [
+                this.customer,
+              ]),
+              color: "error",
+            });
+          }
+    },
     close_payments() {
       evntBus.$emit("show_payment", "false");
     },
@@ -2444,7 +2509,7 @@ export default {
               newItemOffer.posa_is_offer = 0;
               newItemOffer.posa_is_replace = cheapestItem.posa_row_id;
               const diffQty = cheapestItem.qty - newItemOffer.qty;
-              if (diffQty <= 0) {
+               if (diffQty <= 0) {
                 newItemOffer.qty += diffQty;
                 this.remove_item(cheapestItem);
                 newItemOffer.posa_row_id = cheapestItem.posa_row_id;
@@ -2986,6 +3051,7 @@ export default {
       evntBus.$emit("set_customer", this.customer);
       this.fetch_customer_details();
       this.set_delivery_charges();
+      this.update_ticket_and_token();
     },
     customer_info() {
       evntBus.$emit("set_customer_info_to_edit", this.customer_info);
@@ -3023,7 +3089,7 @@ export default {
     },
   },
 };
-</script>
+</script>           
 
 <style scoped>
 .border_line_bottom {

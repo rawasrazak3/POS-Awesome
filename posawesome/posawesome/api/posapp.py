@@ -1815,3 +1815,23 @@ def get_sales_invoice_child_table(sales_invoice, sales_invoice_item):
         "Sales Invoice Item", {"parent": parent_doc.name, "name": sales_invoice_item}
     )
     return child_doc
+
+
+@frappe.whitelist()
+def get_ticket_and_token(customer):
+    # Fetch only the custom_token from the Customer doctype
+    custom_token = frappe.db.get_value('Customer', customer, 'custom_token')
+
+    # Fetch only the required fields from the child table custom_tickets
+    custom_tickets = frappe.db.get_list('Ticket', 
+                                        filters={'parent': customer, 'parenttype': 'Customer'},
+                                        fields=['name', 'count','game'],
+                                        order_by='idx',
+                                        )
+    
+    # Return the token and tickets in a dictionary
+    data = {
+        'custom_token': custom_token,
+        'custom_tickets': custom_tickets
+    }    
+    return data
