@@ -413,6 +413,38 @@
               :value="invoice_doc.posa_notes"
             ></v-textarea>
           </v-col>
+          <v-col cols="6">
+            <v-text-field
+              v-if="invoice_doc.payments.some(item => item.mode_of_payment === 'Sheel')"
+              class="pa-0"
+              outlined
+              dense
+              background-color="white"
+              clearable 
+              color="primary"
+              auto-grow
+              rows="2"
+              :label="frappe._('Sheel coupone')"
+              v-model="sheel"
+              :value="sheel"
+            />
+          </v-col>
+          <v-col cols="6">
+            <v-text-field
+              v-if="invoice_doc.payments.some(item => item.mode_of_payment === 'icard')"
+              class="pa-0"
+              outlined
+              dense
+              background-color="white"
+              clearable 
+              color="primary"
+              auto-grow
+              rows="2"
+              :label="frappe._('icard coupone')"
+              v-model="icard"
+              :value="icard"
+            />
+          </v-col>
         </v-row>
 
         <div v-if="pos_profile.posa_allow_customer_purchase_order">
@@ -728,6 +760,8 @@ export default {
     pos_settings: "",
     customer_info: "",
     mpesa_modes: [],
+    icard:'',
+    sheel:''
   }),
 
   methods: {
@@ -736,6 +770,30 @@ export default {
       evntBus.$emit("set_customer_readonly", false);
     },
     submit(event, payment_received = false, print = false) {
+      if (this.invoice_doc.payments.find(item => item.mode_of_payment === 'icard')?.amount > 0 && this.icard==''){
+        evntBus.$emit("show_mesage", {
+            text: __(
+              "Please Fill the icard coupone "
+            ),
+            color: "error",
+          });
+          return
+      }
+
+      if (this.invoice_doc.payments.find(item => item.mode_of_payment === 'sheel')?.amount > 0 && this.sheel==''){
+        evntBus.$emit("show_mesage", {
+            text: __(
+              "Please Fill the sheel coupone "
+            ),
+            color: "error",
+          });
+          return
+      }
+      this.invoice_doc.custom_icard=this.icard
+      this.invoice_doc.custom_sheel=this.sheel
+      this.icard=''
+      this.sheel=''
+      
       if (!this.invoice_doc.is_return && this.total_payments < 0) {
         evntBus.$emit("show_mesage", {
           text: `Payments not correct`,
