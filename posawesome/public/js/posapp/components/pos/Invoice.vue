@@ -32,35 +32,31 @@
         </v-col>
         <v-col
           v-if="!pos_profile.posa_allow_sales_order"
-          cols="9"
+          :cols="customer ? 9 : 10.5"
           class="pb-2"
         >
           <Customer></Customer>
-
         </v-col>
         <v-col
-        cols="1"
+        cols="1.5"
+        v-if="customer"
         >
         <div>
-
-          <v-text-field v-if="customer"
-          color="primary"
-          :label="frappe._('token')"
-          background-color="white"
-          hide-details
-          v-model="customer_token"
-          dense
-          disabled
-          ></v-text-field>              
+          <v-chip
+            class="text-white"
+            color="green"
+          >
+            {{customer_token}} Token
+          </v-chip>
           </div>
         </v-col>
         <v-col
-        cols="2"
-        class="flex justify-center items-center w-full h-full"
+        :cols="customer ? 1.5 : 2"
+        class="flex justify-center items-center w-full h-full  "
         >
         <v-btn
             block
-            class="pa-0"
+            class=""
             :class="{ 'disable-events': !customer }"
                 color=""
                 dark
