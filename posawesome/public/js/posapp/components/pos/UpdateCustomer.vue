@@ -17,7 +17,7 @@
         <v-card-text class="pa-0">
           <v-container>
             <v-row>
-              <v-col cols="12">
+              <v-col cols="6">
                 <v-text-field
                   dense
                   color="primary"
@@ -36,6 +36,15 @@
                   hide-details
                   v-model="tax_id"
                 ></v-text-field>
+              </v-col>
+              <v-col cols="6">
+                <v-checkbox
+                  dense
+                  v-model="isKwaitNumber"
+                  color="primary"
+                  label="Is Kwait Number"
+                  hide-details
+                ></v-checkbox>
               </v-col>
               <v-col cols="6">
                 <v-text-field
@@ -197,6 +206,7 @@ export default {
     gender: '',
     loyalty_points: null,
     loyalty_program: null,
+    isKwaitNumber: true,
   }),
   watch: {},
   methods: {
@@ -293,6 +303,9 @@ export default {
         });
         return;
       }
+      if (this.isKwaitNumber && this.mobile_no) {
+      this.mobile_no = '965' + this.mobile_no.replace(/^965/, '');
+    }
       if (this.customer_name) {
         const vm = this;
         const args = {
