@@ -44,7 +44,7 @@
         <div>
           <v-chip
             class="text-white"
-            color="green"
+            color="red"
           >
             {{customer_token}} Token
           </v-chip>
