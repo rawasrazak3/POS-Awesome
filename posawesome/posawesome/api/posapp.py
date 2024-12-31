@@ -1826,7 +1826,7 @@ def get_ticket_and_token(customer):
     custom_tickets = frappe.db.get_list('Ticket', 
                                         filters={'parent': customer, 'parenttype': 'Customer'},
                                         fields=['name', 'count','game'],
-                                        order_by='idx',
+                                        order_by='idx',ignore_permissions=True
                                         )
     
     # Return the token and tickets in a dictionary
