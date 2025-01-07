@@ -424,7 +424,7 @@
               color="primary"
               auto-grow
               rows="2"
-              :label="frappe._('Sheel coupone')"
+              :label="frappe._('Sheel coupon')"
               v-model="sheel"
               :value="sheel"
             />
@@ -440,7 +440,7 @@
               color="primary"
               auto-grow
               rows="2"
-              :label="frappe._('icard coupone')"
+              :label="frappe._('icard coupon')"
               v-model="icard"
               :value="icard"
             />
@@ -773,7 +773,7 @@ export default {
       if (this.invoice_doc.payments.find(item => item.mode_of_payment === 'icard')?.amount > 0 && this.icard==''){
         evntBus.$emit("show_mesage", {
             text: __(
-              "Please Fill the icard coupone "
+              "Please Fill the icard coupon "
             ),
             color: "error",
           });
@@ -783,7 +783,7 @@ export default {
       if (this.invoice_doc.payments.find(item => item.mode_of_payment === 'sheel')?.amount > 0 && this.sheel==''){
         evntBus.$emit("show_mesage", {
             text: __(
-              "Please Fill the sheel coupone "
+              "Please Fill the sheel coupon "
             ),
             color: "error",
           });
