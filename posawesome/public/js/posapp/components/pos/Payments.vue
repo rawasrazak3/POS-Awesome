@@ -770,7 +770,7 @@ export default {
       evntBus.$emit("set_customer_readonly", false);
     },
     submit(event, payment_received = false, print = false) {
-      if (this.invoice_doc.payments.find(item => item.mode_of_payment === 'icard')?.amount > 0 && this.icard==''){
+      if (this.invoice_doc.payments.find(item => item.mode_of_payment.toLowerCase() === 'icard')?.amount > 0 && this.icard==''){
         evntBus.$emit("show_mesage", {
             text: __(
               "Please Fill the icard coupon "
