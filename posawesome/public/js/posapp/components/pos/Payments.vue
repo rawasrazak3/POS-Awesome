@@ -780,10 +780,10 @@ export default {
           return
       }
 
-      if (this.invoice_doc.payments.find(item => item.mode_of_payment === 'sheel')?.amount > 0 && this.sheel==''){
+      if (this.invoice_doc.payments.find(item => item.mode_of_payment.toLowerCase() === 'sheel')?.amount > 0 && this.sheel==''){
         evntBus.$emit("show_mesage", {
             text: __(
-              "Please Fill the sheel coupon "
+              "Please Fill the sheel coupon"
             ),
             color: "error",
           });
