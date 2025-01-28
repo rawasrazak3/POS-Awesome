@@ -199,7 +199,7 @@ export default {
     birthday_menu: false,
     group: '',
     groups: [],
-    territory: '',
+    territory: 'Kuwait',
     territorys: [],
     genders: [],
     customer_type: 'Individual',
