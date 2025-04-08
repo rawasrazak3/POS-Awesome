@@ -3,20 +3,20 @@
     <!-- Closing POS Shift Dialog -->
     <v-dialog v-model="closingDialog" max-width="900px" persistent>
       <v-card>
-        <v-card-title>
-          <span class="headline primary--text">{{ __("Closing POS Shift") }}</span>
+        <v-card-title class="pa-4">
+          <span class="headline primary--text text-2xl font-medium">{{ __("Closing POS Shift") }}</span>
         </v-card-title>
-        <v-card-text class="pa-4">
+        <v-card-text class="pa-6">
           <payment-reconciliation-table
             :payment-methods="paymentMethods"
             :currency="pos_profile.currency"
             @update-payment="updatePayment"
           />
         </v-card-text>
-        <v-card-actions>
+        <v-card-actions class="pa-4">
           <v-spacer />
-          <v-btn color="error" dark @click="close_dialog">{{ __("Close") }}</v-btn>
-          <v-btn color="success" dark @click="closeShiftAndOpenNewShift">{{ __("Submit") }}</v-btn>
+          <v-btn color="error" dark @click="close_dialog" class="px-6 min-w-[100px] rounded-lg text-base font-medium">{{ __("Close") }}</v-btn>
+          <v-btn color="success" dark @click="closeShiftAndLogout" class="px-6 min-w-[100px] rounded-lg text-base font-medium">{{ __("Submit") }}</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -51,7 +51,7 @@
       </v-card>
     </v-dialog>
 
-    <!-- Opening Shift Dialog -->
+    <!-- Opening Shift Dialog (kept but not triggered) -->
     <opening-dialog
       :dialog="openShiftDialog"
       @shift-opened="handleShiftOpened"
@@ -84,12 +84,8 @@ export default {
     payOutTotal: 0,
     payInEntries: [],
     payOutEntries: [],
-    paymentMethods: {
-      Cash: { closing: 0, expected: 0 },
-      KNET: { closing: 0, expected: 0 },
-      Icards: { closing: 0, expected: 0 },
-      Sheel: { closing: 0, expected: 0 },
-    },
+    paymentMethods: {},
+    payments_method_data: [],
     logged_out: false,
     last_invoice: "",
     currentShift: null,
@@ -115,6 +111,16 @@ export default {
       return this.itemsSold.reduce((sum, item) => sum + (item.amount || 0), 0);
     },
   },
+  watch: {
+    pos_profile: {
+      handler(newVal) {
+        if (newVal?.name) {
+          this.fetchPaymentMethods();
+        }
+      },
+      deep: true,
+    },
+  },
   methods: {
     close_dialog() {
       this.closingDialog = false;
@@ -123,7 +129,43 @@ export default {
     updatePayment(method, value) {
       this.paymentMethods[method].closing = parseFloat(value) || 0;
     },
-    async closeShiftAndOpenNewShift() {
+    async fetchPaymentMethods() {
+      try {
+        const response = await frappe.call({
+          method: "posawesome.posawesome.api.posapp.get_opening_dialog_data",
+          args: {},
+        });
+
+        if (response.message?.payments_method) {
+          this.payments_method_data = response.message.payments_method;
+          this.updatePaymentMethods();
+        } else {
+          console.error("No payment methods returned from backend");
+          frappe.msgprint("Failed to load payment methods.");
+        }
+      } catch (error) {
+        console.error("Error fetching payment methods:", error);
+        frappe.msgprint("Error loading payment methods: " + (error.message || "Unknown error"));
+      }
+    },
+    updatePaymentMethods() {
+      this.paymentMethods = {};
+      this.payments_method_data.forEach((element) => {
+        if (element.parent === this.pos_profile.name) {
+          this.paymentMethods[element.mode_of_payment] = {
+            closing: 0,
+            expected: 0,
+            currency: element.currency,
+          };
+        }
+      });
+    },
+    async closeShiftAndLogout() {
+      if (!Object.keys(this.paymentMethods).length) {
+        frappe.msgprint("No payment methods available. Please check POS Profile.");
+        return;
+      }
+
       const closingData = {
         payment_reconciliation: Object.entries(this.paymentMethods).map(([method, values]) => ({
           mode_of_payment: method,
@@ -150,8 +192,7 @@ export default {
         if (response.message) {
           await this.fetchLastInvoice();
           this.closingDialog = false;
-          this.reportDialog = true; // Show the report dialog first
-          this.openShiftDialog = true; // Then trigger the opening dialog
+          this.reportDialog = true;
         }
       } catch (err) {
         console.error("Shift close error:", err);
@@ -277,3 +318,30 @@ export default {
   },
 };
 </script>
+
+<style scoped>
+.v-dialog .v-card {
+  border-radius: 0.75rem;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+}
+
+.v-card-title {
+  font-size: 1.5rem;
+  font-weight: 500;
+}
+
+.v-card-text {
+  padding: 1.5rem;
+}
+
+.v-card-actions {
+  padding: 1rem;
+}
+
+.v-btn {
+  min-width: 4rem;
+  border-radius: 0.5rem;
+  font-size: 1rem;
+  font-weight: 500;
+}
+</style>

@@ -1,10 +1,11 @@
 <template>
   <nav>
-    <v-app-bar app height="40" class="elevation-2">
+    <v-app-bar app height="60" class="elevation-2">
       <v-app-bar-nav-icon
         @click.stop="drawer = !drawer"
         class="grey--text"
       ></v-app-bar-nav-icon>
+      
       <v-img
         src="/assets/posawesome/js/posapp/components/pos/pos.png"
         alt="POS Awesome"
@@ -12,6 +13,7 @@
         class="mr-2"
         color="primary"
       ></v-img>
+      
       <v-toolbar-title
         @click="go_desk"
         style="cursor: pointer"
@@ -24,77 +26,73 @@
       <v-spacer></v-spacer>
 
       <!-- Pay In and Pay Out buttons -->
-      <v-btn class="pay-btn mr-2" color="success" @click="payInDialog = true"
-        >Pay In</v-btn
-      >
-      <v-btn class="pay-btn mr-2" color="error" @click="payOutDialog = true"
-        >Pay Out</v-btn
-      >
+      <v-btn class="pay-btn mr-2" color="success" @click="payInDialog = true">
+        Pay In
+      </v-btn>
+      <v-btn class="pay-btn mr-2" color="error" @click="payOutDialog = true">
+        Pay Out
+      </v-btn>
 
       <v-btn style="cursor: unset" text color="primary">
-        <span right>{{ pos_profile.name }}</span>
+        <span>{{ pos_profile.name }}</span>
       </v-btn>
-      <div class="text-center">
-        <v-menu offset-y>
-          <template v-slot:activator="{ on, attrs }">
-            <v-btn color="primary" dark text v-bind="attrs" v-on="on"
-              >Menu</v-btn
-            >
-          </template>
-          <v-card class="mx-auto" max-width="300" tile>
-            <v-list dense>
-              <v-list-item-group v-model="menu_item" color="primary">
-                <v-list-item
-                  @click="close_shift_dialog"
-                  v-if="!pos_profile.posa_hide_closing_shift && item == 0"
-                >
-                  <v-list-item-icon>
-                    <v-icon>mdi-content-save-move-outline</v-icon>
-                  </v-list-item-icon>
-                  <v-list-item-content>
-                    <v-list-item-title>{{
-                      __("Close Shift")
-                    }}</v-list-item-title>
-                  </v-list-item-content>
-                </v-list-item>
-                <v-list-item
-                  @click="print_last_invoice"
-                  v-if="
-                    pos_profile.posa_allow_print_last_invoice &&
-                    this.last_invoice
-                  "
-                >
-                  <v-list-item-icon>
-                    <v-icon>mdi-printer</v-icon>
-                  </v-list-item-icon>
-                  <v-list-item-content>
-                    <v-list-item-title>{{
-                      __("Print Last Invoice")
-                    }}</v-list-item-title>
-                  </v-list-item-content>
-                </v-list-item>
-                <v-divider class="my-0"></v-divider>
-                <v-list-item @click="logOut">
-                  <v-list-item-icon>
-                    <v-icon>mdi-logout</v-icon>
-                  </v-list-item-icon>
-                  <v-list-item-content>
-                    <v-list-item-title>{{ __("Logout") }}</v-list-item-title>
-                  </v-list-item-content>
-                </v-list-item>
-                <v-list-item @click="go_about">
-                  <v-list-item-icon>
-                    <v-icon>mdi-information-outline</v-icon>
-                  </v-list-item-icon>
-                  <v-list-item-content>
-                    <v-list-item-title>{{ __("About") }}</v-list-item-title>
-                  </v-list-item-content>
-                </v-list-item>
-              </v-list-item-group>
-            </v-list>
-          </v-card>
-        </v-menu>
-      </div>
+      
+      <v-menu offset-y>
+        <template v-slot:activator="{ on, attrs }">
+          <v-btn color="primary" dark text v-bind="attrs" v-on="on">
+            Menu
+          </v-btn>
+        </template>
+        <v-card class="mx-auto" max-width="300" tile>
+          <v-list dense>
+            <v-list-item-group v-model="menu_item" color="primary">
+              <v-list-item
+                @click="close_shift_dialog"
+                v-if="!pos_profile.posa_hide_closing_shift && item == 0"
+              >
+                <v-list-item-icon>
+                  <v-icon>mdi-content-save-move-outline</v-icon>
+                </v-list-item-icon>
+                <v-list-item-content>
+                  <v-list-item-title>{{ __("Close Shift") }}</v-list-item-title>
+                </v-list-item-content>
+              </v-list-item>
+              
+              <v-list-item
+                @click="print_last_invoice"
+                v-if="pos_profile.posa_allow_print_last_invoice && last_invoice"
+              >
+                <v-list-item-icon>
+                  <v-icon>mdi-printer</v-icon>
+                </v-list-item-icon>
+                <v-list-item-content>
+                  <v-list-item-title>{{ __("Print Last Invoice") }}</v-list-item-title>
+                </v-list-item-content>
+              </v-list-item>
+              
+              <v-divider class="my-0"></v-divider>
+              
+              <v-list-item @click="logOut">
+                <v-list-item-icon>
+                  <v-icon>mdi-logout</v-icon>
+                </v-list-item-icon>
+                <v-list-item-content>
+                  <v-list-item-title>{{ __("Logout") }}</v-list-item-title>
+                </v-list-item-content>
+              </v-list-item>
+              
+              <v-list-item @click="go_about">
+                <v-list-item-icon>
+                  <v-icon>mdi-information-outline</v-icon>
+                </v-list-item-icon>
+                <v-list-item-content>
+                  <v-list-item-title>{{ __("About") }}</v-list-item-title>
+                </v-list-item-content>
+              </v-list-item>
+            </v-list-item-group>
+          </v-list>
+        </v-card>
+      </v-menu>
     </v-app-bar>
 
     <v-navigation-drawer
@@ -212,11 +210,6 @@ export default {
       mini: true,
       item: 0,
       items: [{ text: "POS", icon: "mdi-network-pos" }],
-      page: "",
-      fav: true,
-      menu: false,
-      message: false,
-      hints: true,
       menu_item: 0,
       snack: false,
       snackColor: "",
@@ -238,9 +231,8 @@ export default {
       payOutNote: "",
       payInTotal: 0,
       payOutTotal: 0,
-      payInEntries: [], // Store Pay In details
-      payOutEntries: [], // Store Pay Out details
-      // Form validation rules
+      payInEntries: [],
+      payOutEntries: [],
       rules: {
         required: (value) => !!value || "Required",
         positiveNumber: (value) => value > 0 || "Must be greater than 0",
@@ -255,11 +247,7 @@ export default {
       window.location.href = "/";
     },
     go_about() {
-      const win = window.open(
-        "https://github.com/yrestom/POS-Awesome",
-        "_blank"
-      );
-      win.focus();
+      window.open("https://github.com/yrestom/POS-Awesome", "_blank").focus();
     },
     close_shift_dialog() {
       evntBus.$emit("open_closing_dialog");
@@ -269,161 +257,135 @@ export default {
       this.snackColor = data.color;
       this.snackText = data.text;
     },
-    logOut() {
-      const me = this;
-      me.freeze = true;
-      me.freezeTitle = "Logging out";
-      me.freezeMsg = "Please wait...";
+    async logOut() {
+      try {
+        this.freeze = true;
+        this.freezeTitle = "Logging out";
+        this.freezeMsg = "Please wait...";
 
-      fetch("/api/method/logout", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Frappe-CSRF-Token": frappe.csrf_token || "",
-          "Cache-Control": "no-cache, no-store, must-revalidate",
-          Pragma: "no-cache",
-          Expires: "0",
-        },
-        credentials: "include",
-      })
-        .then((response) => {
-          if (!response.ok) {
-            throw new Error("Logout failed with status: " + response.status);
-          }
-          return response.json();
-        })
-        .then((data) => {
-          me.logged_out = true;
-          localStorage.clear();
-          sessionStorage.clear();
-          document.cookie.split(";").forEach(function (c) {
-            document.cookie = c
-              .replace(/^ +/, "")
-              .replace(
-                /=.*/,
-                "=;expires=" + new Date().toUTCString() + ";path=/"
-              );
-          });
-          window.location.replace("/login?nocache=" + Date.now());
-        })
-        .catch((error) => {
-          me.show_mesage({
-            text: "Logout failed: " + error.message,
-            color: "error",
-          });
-          me.freeze = false;
-          console.error("Logout error:", error);
+        const response = await fetch("/api/method/logout", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Frappe-CSRF-Token": frappe.csrf_token || "",
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            Pragma: "no-cache",
+            Expires: "0",
+          },
+          credentials: "include",
         });
+
+        if (!response.ok) {
+          throw new Error(`Logout failed with status: ${response.status}`);
+        }
+
+        this.clearSessionAndRedirect();
+      } catch (error) {
+        this.show_mesage({
+          text: `Logout failed: ${error.message}`,
+          color: "error",
+        });
+        this.freeze = false;
+        console.error("Logout error:", error);
+      }
+    },
+    clearSessionAndRedirect() {
+      this.logged_out = true;
+      localStorage.clear();
+      sessionStorage.clear();
+      document.cookie.split(";").forEach((c) => {
+        document.cookie = c
+          .replace(/^ +/, "")
+          .replace(/=.*/, `=;expires=${new Date().toUTCString()};path=/`);
+      });
+      window.location.replace(`/login?nocache=${Date.now()}`);
     },
     print_last_invoice() {
       if (!this.last_invoice) return;
+      
       const print_format =
         this.pos_profile.print_format_for_online ||
         this.pos_profile.print_format;
       const letter_head = this.pos_profile.letter_head || 0;
-      const url =
-        frappe.urllib.get_base_url() +
-        "/printview?doctype=Sales%20Invoice&name=" +
-        this.last_invoice +
-        "&trigger_print=1" +
-        "&format=" +
-        print_format +
-        "&no_letterhead=" +
-        letter_head;
+      const url = `${frappe.urllib.get_base_url()}/printview?doctype=Sales%20Invoice&name=${
+        this.last_invoice
+      }&trigger_print=1&format=${print_format}&no_letterhead=${letter_head}`;
+      
       const printWindow = window.open(url, "Print");
-      printWindow.addEventListener(
-        "load",
-        function () {
-          printWindow.print();
-        },
-        true
-      );
+      printWindow.addEventListener("load", () => printWindow.print(), true);
     },
     submitPayIn() {
-      if (this.payInAmount && this.payInAmount > 0) {
-        const amount = parseFloat(this.payInAmount);
-        this.payInTotal += amount;
-        const entry = {
-          amount: amount,
-          note: this.payInNote || "No note provided",
-        };
-        this.payInEntries.push(entry);
-        // Emit totals and entries
-        evntBus.$emit("update-piti-totals", {
-          payInAmount: amount,
-          payOutAmount: 0,
-          payInEntries: this.payInEntries,
-          payOutEntries: this.payOutEntries,
-        });
-        this.show_mesage({
-          text: `Pay In of $${this.payInAmount} submitted`,
-          color: "success",
-        });
-        this.payInAmount = "";
-        this.payInNote = "";
-        this.payInDialog = false;
-      } else {
-        this.show_mesage({
-          text: "Please enter a valid amount",
-          color: "error",
-        });
-      }
+      if (!this.validatePayment(this.payInAmount)) return;
+      
+      const amount = parseFloat(this.payInAmount);
+      this.payInTotal += amount;
+      this.payInEntries.push({
+        amount,
+        note: this.payInNote || "No note provided",
+      });
+      
+      this.emitPaymentUpdate(amount, 0);
+      this.showSuccessMessage("Pay In", amount);
+      this.resetPaymentForm("payIn");
     },
     submitPayOut() {
-      if (this.payOutAmount && this.payOutAmount > 0) {
-        const amount = parseFloat(this.payOutAmount);
-        this.payOutTotal += amount;
-        const entry = {
-          amount: amount,
-          note: this.payOutNote || "No note provided",
-        };
-        this.payOutEntries.push(entry);
-        // Emit totals and entries
-        evntBus.$emit("update-piti-totals", {
-          payInAmount: 0,
-          payOutAmount: amount,
-          payInEntries: this.payInEntries,
-          payOutEntries: this.payOutEntries,
-        });
-        this.show_mesage({
-          text: `Pay Out of $${this.payOutAmount} submitted`,
-          color: "success",
-        });
-        this.payOutAmount = "";
-        this.payOutNote = "";
-        this.payOutDialog = false;
-      } else {
+      if (!this.validatePayment(this.payOutAmount)) return;
+      
+      const amount = parseFloat(this.payOutAmount);
+      this.payOutTotal += amount;
+      this.payOutEntries.push({
+        amount,
+        note: this.payOutNote || "No note provided",
+      });
+      
+      this.emitPaymentUpdate(0, amount);
+      this.showSuccessMessage("Pay Out", amount);
+      this.resetPaymentForm("payOut");
+    },
+    validatePayment(amount) {
+      if (!amount || amount <= 0) {
         this.show_mesage({
           text: "Please enter a valid amount",
           color: "error",
         });
+        return false;
       }
+      return true;
+    },
+    emitPaymentUpdate(payInAmount, payOutAmount) {
+      evntBus.$emit("update-piti-totals", {
+        payInAmount,
+        payOutAmount,
+        payInEntries: this.payInEntries,
+        payOutEntries: this.payOutEntries,
+      });
+    },
+    showSuccessMessage(type, amount) {
+      this.show_mesage({
+        text: `${type} of $${amount} submitted`,
+        color: "success",
+      });
+    },
+    resetPaymentForm(type) {
+      this[`${type}Amount`] = "";
+      this[`${type}Note`] = "";
+      this[`${type}Dialog`] = false;
     },
   },
   created() {
-    this.$nextTick(function () {
-      evntBus.$on("show_mesage", (data) => {
-        this.show_mesage(data);
-      });
+    this.$nextTick(() => {
+      evntBus.$on("show_mesage", this.show_mesage);
       evntBus.$on("set_company", (data) => {
         this.company = data.name;
-        this.company_img = data.company_logo
-          ? data.company_logo
-          : this.company_img;
+        this.company_img = data.company_logo || this.company_img;
       });
       evntBus.$on("register_pos_profile", (data) => {
         this.pos_profile = data.pos_profile || {};
-        const payments = { text: "Payments", icon: "mdi-cash-register" };
-        if (
-          this.pos_profile.posa_use_pos_awesome_payments &&
-          this.items.length !== 2
-        ) {
-          this.items.push(payments);
+        if (this.pos_profile.posa_use_pos_awesome_payments && this.items.length !== 2) {
+          this.items.push({ text: "Payments", icon: "mdi-cash-register" });
         }
       });
-      evntBus.$on("set_last_invoice", (data) => {
-        this.last_invoice = data;
-      });
+      evntBus.$on("set_last_invoice", (data) => (this.last_invoice = data));
       evntBus.$on("freeze", (data) => {
         this.freeze = true;
         this.freezeTitle = data.title;
@@ -453,11 +415,15 @@ export default {
 }
 
 .pay-btn {
-  height: 32px !important;
+  height: 36px !important;
   min-width: 80px !important;
   border-radius: 4px;
   text-transform: uppercase;
   font-weight: 500;
   letter-spacing: 0.5px;
+}
+
+.v-app-bar {
+  transition: height 0.3s ease;
 }
 </style>
