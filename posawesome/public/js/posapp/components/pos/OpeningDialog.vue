@@ -1,14 +1,9 @@
 <template>
   <v-row justify="center">
     <v-dialog v-model="isOpen" persistent max-width="600px">
-      <!-- <template v-slot:activator="{ on, attrs }">
-        <v-btn color="primary" dark v-bind="attrs" v-on="on">Open Dialog</v-btn>
-      </template>-->
       <v-card>
         <v-card-title>
-          <span class="headline primary--text">{{
-            __('Create POS Opening Shift')
-          }}</span>
+          <span class="headline primary--text">{{ __("Create POS Opening Shift") }}</span>
         </v-card-title>
         <v-card-text>
           <v-container>
@@ -30,33 +25,30 @@
                 ></v-autocomplete>
               </v-col>
               <v-col cols="12">
-                <template>
-                  <v-data-table
-                    :headers="payments_methods_headers"
-                    :items="payments_methods"
-                    item-key="mode_of_payment"
-                    class="elevation-1"
-                    :items-per-page="itemsPerPage"
-                    hide-default-footer
-                  >
-                    <template v-slot:item.amount="props">
-                      <v-edit-dialog :return-value.sync="props.item.amount">
-                        {{ currencySymbol(props.item.currency) }}
-                        {{ formtCurrency(props.item.amount) }}
-                        <template v-slot:input>
-                          <v-text-field
-                            v-model="props.item.amount"
-                            :rules="[max25chars]"
-                            :label="frappe._('Edit')"
-                            single-line
-                            counter
-                            type="number"
-                          ></v-text-field>
-                        </template>
-                      </v-edit-dialog>
-                    </template>
-                  </v-data-table>
-                </template>
+                <v-data-table
+                  :headers="payments_methods_headers"
+                  :items="payments_methods"
+                  item-key="mode_of_payment"
+                  class="elevation-1"
+                  :items-per-page="itemsPerPage"
+                  hide-default-footer
+                >
+                  <template v-slot:item.amount="props">
+                    <v-edit-dialog :return-value.sync="props.item.amount">
+                      {{ currencySymbol(props.item.currency) }} {{ formtCurrency(props.item.amount) }}
+                      <template v-slot:input>
+                        <v-text-field
+                          v-model="props.item.amount"
+                          :rules="[max25chars]"
+                          :label="frappe._('Edit')"
+                          single-line
+                          counter
+                          type="number"
+                        ></v-text-field>
+                      </template>
+                    </v-edit-dialog>
+                  </template>
+                </v-data-table>
               </v-col>
             </v-row>
           </v-container>
@@ -69,8 +61,7 @@
             :disabled="is_loading"
             dark
             @click="submit_dialog"
-            >Submit</v-btn
-          >
+          >Submit</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -80,12 +71,16 @@
 <script>
 import { evntBus } from '../../bus';
 import format from '../../format';
+
 export default {
+  name: "OpeningDialog",
   mixins: [format],
-  props: ['dialog'],
+  props: {
+    dialog: Boolean,
+  },
   data() {
     return {
-      isOpen: this.dialog ? this.dialog : false,
+      isOpen: this.dialog,
       dialog_data: {},
       is_loading: false,
       companies: [],
@@ -110,14 +105,16 @@ export default {
         },
       ],
       itemsPerPage: 100,
-      max25chars: (v) => v.length <= 12 || 'Input too long!', // TODO : should validate as number
-      pagination: {},
-      snack: false, // TODO : need to remove
-      snackColor: '', // TODO : need to remove
-      snackText: '', // TODO : need to remove
+      max25chars: (v) => v.length <= 12 || 'Input too long!',
     };
   },
   watch: {
+    dialog(val) {
+      this.isOpen = val;
+    },
+    isOpen(val) {
+      this.$emit("input", val);
+    },
     company(val) {
       this.pos_profiles = [];
       this.pos_profiles_data.forEach((element) => {
@@ -146,6 +143,7 @@ export default {
   },
   methods: {
     close_opening_dialog() {
+      this.isOpen = false;
       evntBus.$emit('close_opening_dialog');
     },
     get_opening_dialog_data() {
@@ -161,38 +159,47 @@ export default {
             vm.company = vm.companies[0];
             vm.pos_profiles_data = r.message.pos_profiles_data;
             vm.payments_method_data = r.message.payments_method;
+          } else {
+            console.error("No data returned from get_opening_dialog_data");
           }
         },
       });
     },
-    submit_dialog() {
+    async submit_dialog() {
       if (!this.payments_methods.length || !this.company || !this.pos_profile) {
+        frappe.msgprint("Please fill all required fields.");
         return;
       }
       this.is_loading = true;
-      const vm = this;
-      return frappe
-        .call('posawesome.posawesome.api.posapp.create_opening_voucher', {
+      try {
+        const response = await frappe.call('posawesome.posawesome.api.posapp.create_opening_voucher', {
           pos_profile: this.pos_profile,
           company: this.company,
           balance_details: this.payments_methods,
-        })
-        .then((r) => {
-          if (r.message) {
-            evntBus.$emit('register_pos_data', r.message);
-            evntBus.$emit('set_company', r.message.company);
-            vm.close_opening_dialog();
-            is_loading = false;
-          }
         });
+
+        if (response.message) {
+          evntBus.$emit('register_pos_data', response.message);
+          evntBus.$emit('set_company', response.message.company);
+          this.$emit('shift-opened');
+          this.close_opening_dialog();
+        } else {
+          frappe.msgprint("Failed to create opening voucher.");
+        }
+      } catch (error) {
+        console.error("Error creating opening voucher:", error);
+        frappe.msgprint("Error opening shift: " + (error.message || "Unknown error"));
+      } finally {
+        this.is_loading = false;
+      }
     },
     go_desk() {
       frappe.set_route('/');
       location.reload();
     },
   },
-  created: function () {
-    this.$nextTick(function () {
+  created() {
+    this.$nextTick(() => {
       this.get_opening_dialog_data();
     });
   },
