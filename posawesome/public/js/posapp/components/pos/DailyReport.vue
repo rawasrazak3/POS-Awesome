@@ -1,4 +1,3 @@
-<!-- DailyReport.vue -->
 <template>
     <div class="report-preview">
       <div class="text-center mb-6">
@@ -12,20 +11,35 @@
       </v-row>
   
       <div class="section-title">Pay Transactions</div>
-      <v-simple-table class="mb-4">
+      <v-simple-table class="mb-4 pay-table">
         <tbody>
-          <tr><td><strong>Pay In</strong></td><td class="text-right">{{ currencySymbol(posProfile.currency) }} {{ formtCurrency(payData.payInTotal) }}</td></tr>
-          <tr v-for="(entry, index) in payData.payInEntries" :key="'payin-' + index"><td><strong>Note</strong></td><td class="pl-6 text-right">{{ entry.note }}</td></tr>
-          <tr><td><strong>Pay Out</strong></td><td class="text-right">{{ currencySymbol(posProfile.currency) }} {{ formtCurrency(payData.payOutTotal) }}</td></tr>
-          <tr v-for="(entry, index) in payData.payOutEntries" :key="'payout-' + index"><td><strong>Note</strong></td><td class="pl-6 text-right">{{ entry.note }}</td></tr>
-          <tr><td><strong>Remaining</strong></td><td class="text-right">{{ currencySymbol(posProfile.currency) }} {{ formtCurrency(payData.payInTotal - payData.payOutTotal) }}</td></tr>
+          <tr v-if="payData.payInEntries.length > 0" class="total-row">
+            <td><strong>Total Pay In</strong></td>
+            <td class="text-right"><strong>{{ currencySymbol(posProfile.currency) }} {{ formtCurrency(payData.payInTotal) }}</strong></td>
+          </tr>
+          <tr v-for="(entry, index) in payData.payInEntries" :key="'payin-' + index">
+            <td class="text-left">{{ entry.note }}  </td>
+            <td class="text-right">{{ currencySymbol(posProfile.currency) }} {{ formtCurrency(entry.amount) }}</td>
+          </tr>
+          <tr v-if="payData.payOutEntries.length > 0" class="total-row">
+            <td><strong>Total Pay Out</strong></td>
+            <td class="text-right"><strong>{{ currencySymbol(posProfile.currency) }} {{ formtCurrency(payData.payOutTotal) }}</strong></td>
+          </tr>
+          <tr v-for="(entry, index) in payData.payOutEntries" :key="'payout-' + index">
+            <td class="text-left">{{ entry.note }}  </td>
+            <td class="text-right">{{ currencySymbol(posProfile.currency) }} {{ formtCurrency(entry.amount) }}</td>
+          </tr>
+          <tr class="remaining-row">
+            <td><strong>Remaining</strong></td>
+            <td class="text-right">{{ currencySymbol(posProfile.currency) }} {{ formtCurrency(payData.payInTotal - payData.payOutTotal) }}</td>
+          </tr>
         </tbody>
       </v-simple-table>
   
       <div class="section-title">Items Sold</div>
       <v-simple-table class="mb-4">
         <thead>
-          <tr><th>Item Name</th><th class="text-center">Qty</th><th class="text-right">Amount</th></tr>
+          <tr><th class="text-left">Item Name</th><th class="text-center">Qty</th><th class="text-right">Amount</th></tr>
         </thead>
         <tbody>
           <tr v-for="(item, index) in itemsSold" :key="index">
@@ -43,29 +57,40 @@
       <div class="section-title">Closing Shift Settlement</div>
       <v-simple-table class="mb-4 settlement-table">
         <thead>
-          <tr><th class="text-left">Payment Type</th><th class="text-right">Closing Amount</th><th class="text-right">Expected Amount</th><th class="text-right">Difference</th></tr>
+          <tr>
+            <th class="text-left" style="width: 40%;">Payment Type</th>
+            <th class="text-right amount-column">Closing Amount</th>
+            <th class="text-right amount-column">Expected Amount</th>
+            <th class="text-right amount-column">Difference</th>
+          </tr>
         </thead>
         <tbody>
           <tr v-for="(values, method) in paymentMethods" :key="method">
-            <td class="text-left">{{ method }}</td>
-            <td class="text-right">{{ currencySymbol(posProfile.currency) }} {{ formtCurrency(values.closing || 0) }}</td>
-            <td class="text-right">{{ currencySymbol(posProfile.currency) }} {{ formtCurrency(values.expected || 0) }}</td>
-            <td class="text-right">{{ currencySymbol(posProfile.currency) }} {{ formtCurrency((values.expected || 0) - (values.closing || 0)) }}</td>
+            <td class="text-left" style="width: 50%;">{{ method }}</td>
+            <td class="text-right amount-column">{{ currencySymbol(posProfile.currency) }} {{ formtCurrency(values.closing || 0) }}</td>
+            <td class="text-right amount-column">{{ currencySymbol(posProfile.currency) }} {{ formtCurrency(values.expected || 0) }}</td>
+            <td class="text-right amount-column">{{ currencySymbol(posProfile.currency) }} {{ formtCurrency((values.expected || 0) - (values.closing || 0)) }}</td>
           </tr>
           <tr class="total-row">
-            <td class="text-left"><strong>Total</strong></td>
-            <td class="text-right"><strong>{{ currencySymbol(posProfile.currency) }} {{ formtCurrency(totalClosing) }}</strong></td>
-            <td class="text-right"><strong>{{ currencySymbol(posProfile.currency) }} {{ formtCurrency(totalExpected) }}</strong></td>
-            <td class="text-right"><strong>{{ currencySymbol(posProfile.currency) }} {{ formtCurrency(totalDifference) }}</strong></td>
+            <td class="text-left" style="width: 50%;"><strong>Total</strong></td>
+            <td class="text-right amount-column"><strong>{{ currencySymbol(posProfile.currency) }} {{ formtCurrency(totalClosing) }}</strong></td>
+            <td class="text-right amount-column"><strong>{{ currencySymbol(posProfile.currency) }} {{ formtCurrency(totalExpected) }}</strong></td>
+            <td class="text-right amount-column"><strong>{{ currencySymbol(posProfile.currency) }} {{ formtCurrency(totalDifference) }}</strong></td>
           </tr>
         </tbody>
       </v-simple-table>
   
       <div class="signature-section mt-8">
-        <v-row>
-          <v-col cols="6" class="text-center"><div class="signature-line" /><div>Cashier's Signature</div></v-col>
-          <v-col cols="6" class="text-center"><div class="signature-line" /><div>Manager's Signature</div></v-col>
-        </v-row>
+        <div class="signature-container">
+          <div class="signature-left">
+            <div class="signature-line" />
+            <div>Cashier's Signature</div>
+          </div>
+          <div class="signature-right">
+            <div class="signature-line" />
+            <div>Manager's Signature</div>
+          </div>
+        </div>
       </div>
     </div>
   </template>
@@ -108,17 +133,21 @@
                 body { font-family: Arial, sans-serif; padding: 20px; }
                 h1 { font-size: 24px; font-weight: bold; margin-bottom: 4px; text-align: center; }
                 .subtitle { font-size: 16px; color: #555; margin-bottom: 16px; text-align: center; }
-                .section-title { font-size: 18px; font-weight: bold; margin: 16px 0 8px; padding-bottom: 4px; border-sizing: 1px solid #ddd; }
+                .section-title { font-size: 18px; font-weight: bold; margin: 16px 0 8px; padding-bottom: 4px; border-bottom: 1px solid #ddd; }
                 table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
                 th, td { padding: 8px; border: 1px solid #ddd; }
                 th { font-weight: bold; background-color: #f5f5f5; }
                 .text-center { text-align: center; }
                 .text-right { text-align: right; }
                 .text-left { text-align: left; }
-                .total-row { font-weight: bold; background-color: #f9f9f9; }
+                .total-row { font-weight: bold; font-size: 16px; background-color: #f9f9f9; border: 2px solid #666; }
+                .remaining-row { font-weight: bold; }
+                .amount-column { width: 20%; min-width: 120px; }
+                .settlement-table th:first-child, .settlement-table td:first-child { width: 40%; }
                 .signature-section { margin-top: 32px; }
+                .signature-container { display: flex; justify-content: space-between; align-items: center; }
+                .signature-left, .signature-right { text-align: center; width: 40%; }
                 .signature-line { border-top: 1px solid #000; width: 200px; margin: 0 auto 10px; }
-                .pl-6 { padding-left: 24px; }
               </style>
             </head>
             <body onload="window.print();">
@@ -149,10 +178,32 @@
     border-bottom: 1px solid #ddd;
   }
   
+  .signature-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  
+  .signature-left,
+  .signature-right {
+    text-align: center;
+    width: 40%;
+  }
+  
   .signature-line {
     border-top: 1px solid #000;
     width: 200px;
     margin: 0 auto 10px;
     height: 1px;
+  }
+  
+  .pay-table .total-row td {
+    font-size: 16px;
+    border: 2px solid #666;
+  }
+  
+  .settlement-table th:first-child,
+  .settlement-table td:first-child {
+    width: 40%;
   }
   </style>

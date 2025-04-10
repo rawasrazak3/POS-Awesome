@@ -185,7 +185,8 @@
       </v-card>
     </v-dialog>
 
-    <v-snackbar v-model="snack" :timeout="5000" :color="snackColor" top right>
+    <!-- Modified Snackbar - Positioned at top center -->
+    <v-snackbar v-model="snack" :timeout="2000" :color="snackColor" top class="top-center-snackbar">
       {{ snackText }}
     </v-snackbar>
 
@@ -332,6 +333,17 @@ export default {
       if (!this.validatePayment(this.payOutAmount)) return;
       
       const amount = parseFloat(this.payOutAmount);
+      const availableBalance = this.payInTotal - this.payOutTotal;
+
+      // Check if there's sufficient balance
+      if (amount > availableBalance) {
+        this.show_mesage({
+          text: "Insufficient balance for payout",
+          color: "error",
+        });
+        return;
+      }
+
       this.payOutTotal += amount;
       this.payOutEntries.push({
         amount,
@@ -425,5 +437,11 @@ export default {
 
 .v-app-bar {
   transition: height 0.3s ease;
+}
+
+.top-center-snackbar {
+  left: 50%;
+  transform: translateX(-50%);
+  right: auto !important;
 }
 </style>

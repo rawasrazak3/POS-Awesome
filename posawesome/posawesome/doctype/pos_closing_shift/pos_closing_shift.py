@@ -9,7 +9,6 @@ from frappe import _
 from frappe.model.document import Document
 from frappe.utils import flt
 
-
 class POSClosingShift(Document):
     def validate(self):
         user = frappe.get_all(
@@ -43,22 +42,17 @@ class POSClosingShift(Document):
         self.update_payment_reconciliation()
 
     def update_payment_reconciliation(self):
-        # update the difference values in Payment Reconciliation child table
-        # get default precision for site
         precision = (
             frappe.get_cached_value("System Settings", None, "currency_precision") or 3
         )
         for d in self.payment_reconciliation:
-            d.difference = +flt(d.closing_amount, precision) - flt(
+            d.difference = flt(d.closing_amount, precision) - flt(
                 d.expected_amount, precision
             )
 
     def on_submit(self):
-        opening_entry = frappe.get_doc("POS Opening Shift", self.pos_opening_shift)
-        opening_entry.pos_closing_shift = self.name
-        opening_entry.set_status()
+        # Move logic to submit_closing_shift to avoid concurrency issues here
         self.delete_draft_invoices()
-        opening_entry.save()
 
     def delete_draft_invoices(self):
         if frappe.get_value("POS Profile", self.pos_profile, "posa_allow_delete"):
@@ -86,33 +80,29 @@ class POSClosingShift(Document):
             {"data": self, "currency": currency},
         )
 
-
 @frappe.whitelist()
 def get_cashiers(doctype, txt, searchfield, start, page_len, filters):
     cashiers_list = frappe.get_all("POS Profile User", filters=filters, fields=["user"])
     return [c["user"] for c in cashiers_list]
-
 
 @frappe.whitelist()
 def get_pos_invoices(pos_opening_shift):
     submit_printed_invoices(pos_opening_shift)
     data = frappe.db.sql(
         """
-	select
-		name
-	from
-		`tabSales Invoice`
-	where
-		docstatus = 1 and posa_pos_opening_shift = %s
-	""",
+        select
+            name
+        from
+            `tabSales Invoice`
+        where
+            docstatus = 1 and posa_pos_opening_shift = %s
+        """,
         (pos_opening_shift),
         as_dict=1,
     )
 
     data = [frappe.get_doc("Sales Invoice", d.name).as_dict() for d in data]
-
     return data
-
 
 @frappe.whitelist()
 def get_payments_entries(pos_opening_shift):
@@ -132,7 +122,6 @@ def get_payments_entries(pos_opening_shift):
             "party",
         ],
     )
-
 
 @frappe.whitelist()
 def make_closing_shift_from_opening(opening_shift):
@@ -265,7 +254,6 @@ def make_closing_shift_from_opening(opening_shift):
 
     return closing_shift
 
-
 @frappe.whitelist()
 def submit_closing_shift(closing_shift):
     closing_shift = json.loads(closing_shift)
@@ -273,8 +261,12 @@ def submit_closing_shift(closing_shift):
     closing_shift_doc.flags.ignore_permissions = True
     closing_shift_doc.save()
     closing_shift_doc.submit()
-    return closing_shift_doc.name
-
+    # Update POS Opening Shift status directly to avoid TimestampMismatchError
+    frappe.db.set_value("POS Opening Shift", closing_shift_doc.pos_opening_shift, {
+        "status": "Closed",
+        "pos_closing_shift": closing_shift_doc.name
+    })
+    return {"message": "Shift closed successfully", "name": closing_shift_doc.name}
 
 def submit_printed_invoices(pos_opening_shift):
     invoices_list = frappe.get_all(

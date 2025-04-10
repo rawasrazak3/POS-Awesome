@@ -69,7 +69,7 @@
   .closing-table th {
     height: 64px; /* Increased height to 64px */
     padding: 8px 24px; /* Increased horizontal padding to 24px for vertical gap between columns */
-    font-size: 36px; /* Increased font size to 36px */
+    font-size: 48px; /* Increased font size to 36px */
     font-weight: 600;
     background-color: #f5f5f5;
     border-bottom: 2px solid #000;

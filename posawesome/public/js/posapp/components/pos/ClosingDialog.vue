@@ -7,54 +7,62 @@
           <span class="headline primary--text text-2xl font-medium">{{ __("Closing POS Shift") }}</span>
         </v-card-title>
         <v-card-text class="pa-6">
+          <v-progress-circular v-if="loading" indeterminate color="primary" />
           <payment-reconciliation-table
+            v-else-if="Object.keys(paymentMethods).length > 0"
             :payment-methods="paymentMethods"
             :currency="pos_profile.currency"
             @update-payment="updatePayment"
           />
+          <!-- Fallback table for debugging -->
+          <v-simple-table v-else-if="Object.keys(paymentMethods).length > 0" class="fallback-table">
+            <thead>
+              <tr>
+                <th class="text-left">Payment Type</th>
+                <th class="text-right">Closing Amount</th>
+                <th class="text-right">Expected Amount</th>
+                <th class="text-right">Difference</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="(values, method) in paymentMethods" :key="method">
+                <td class="text-left">{{ method }}</td>
+                <td class="text-right">{{ currencySymbol(pos_profile.currency) }} {{ formtCurrency(values.closing || 0) }}</td>
+                <td class="text-right">{{ currencySymbol(pos_profile.currency) }} {{ formtCurrency(values.expected || 0) }}</td>
+                <td class="text-right">{{ currencySymbol(pos_profile.currency) }} {{ formtCurrency((values.expected || 0) - (values.closing || 0)) }}</td>
+              </tr>
+            </tbody>
+          </v-simple-table>
+          <div v-else class="text-center text-red-500">
+            No payment methods available. Error: {{ errorMessage || "Unknown error" }}
+          </div>
         </v-card-text>
         <v-card-actions class="pa-4">
           <v-spacer />
           <v-btn color="error" dark @click="close_dialog" class="px-6 min-w-[100px] rounded-lg text-base font-medium">{{ __("Close") }}</v-btn>
-          <v-btn color="success" dark @click="closeShiftAndLogout" class="px-6 min-w-[100px] rounded-lg text-base font-medium">{{ __("Submit") }}</v-btn>
+          <v-btn
+            color="success"
+            dark
+            @click="handleSubmit"
+            class="px-6 min-w-[100px] rounded-lg text-base font-medium"
+            :disabled="loading || Object.keys(paymentMethods).length === 0"
+          >
+            {{ __("Submit") }}
+          </v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
 
-    <!-- Daily Report Dialog -->
-    <v-dialog v-model="reportDialog" fullscreen hide-overlay transition="dialog-bottom-transition">
-      <v-card>
-        <v-toolbar dark color="primary">
-          <v-btn icon dark @click="reportDialog = false">
-            <v-icon>mdi-close</v-icon>
-          </v-btn>
-          <v-toolbar-title>Daily Report - VR Mania</v-toolbar-title>
-          <v-spacer />
-          <v-toolbar-items>
-            <v-btn dark text @click="printReportAndLogout">
-              <v-icon left>mdi-printer</v-icon>
-              Print
-            </v-btn>
-          </v-toolbar-items>
-        </v-toolbar>
-        <v-card-text>
-          <daily-report
-            ref="reportContent"
-            :pos-profile="pos_profile"
-            :pay-data="{ payInTotal, payOutTotal, payInEntries, payOutEntries }"
-            :items-sold="itemsSold"
-            :payment-methods="paymentMethods"
-            :current-date="currentDate"
-            :current-time="currentTime"
-          />
-        </v-card-text>
-      </v-card>
-    </v-dialog>
-
-    <!-- Opening Shift Dialog (kept but not triggered) -->
-    <opening-dialog
-      :dialog="openShiftDialog"
-      @shift-opened="handleShiftOpened"
+    <!-- Daily Report Component (Hidden, used for printing) -->
+    <daily-report
+      ref="reportContent"
+      :pos-profile="pos_profile"
+      :pay-data="{ payInTotal, payOutTotal, payInEntries, payOutEntries }"
+      :items-sold="itemsSold"
+      :payment-methods="paymentMethods"
+      :current-date="currentDate"
+      :current-time="currentTime"
+      v-show="false"
     />
   </v-row>
 </template>
@@ -64,7 +72,6 @@ import { evntBus } from "../../bus";
 import format from "../../format";
 import PaymentReconciliationTable from "./PaymentReconciliationTable.vue";
 import DailyReport from "./DailyReport.vue";
-import OpeningDialog from "./OpeningDialog.vue";
 
 export default {
   name: "POSClosingDialog",
@@ -72,23 +79,22 @@ export default {
   components: {
     PaymentReconciliationTable,
     DailyReport,
-    OpeningDialog,
   },
   data: () => ({
     closingDialog: false,
-    reportDialog: false,
-    openShiftDialog: false,
     pos_profile: { currency: "KWD" },
+    paymentMethods: {},
+    payments_method_data: [],
+    currentShift: null,
+    user: frappe.session.user,
     itemsSold: [],
     payInTotal: 0,
     payOutTotal: 0,
     payInEntries: [],
     payOutEntries: [],
-    paymentMethods: {},
-    payments_method_data: [],
-    logged_out: false,
-    last_invoice: "",
-    currentShift: null,
+    totalSalesByMode: {},
+    loading: false,
+    errorMessage: null,
   }),
   computed: {
     currentDate() {
@@ -98,28 +104,6 @@ export default {
     currentTime() {
       return new Date().toLocaleTimeString();
     },
-    totalClosing() {
-      return Object.values(this.paymentMethods).reduce((sum, method) => sum + (parseFloat(method.closing) || 0), 0);
-    },
-    totalExpected() {
-      return Object.values(this.paymentMethods).reduce((sum, method) => sum + (parseFloat(method.expected) || 0), 0);
-    },
-    totalDifference() {
-      return this.totalExpected - this.totalClosing;
-    },
-    totalItemsSold() {
-      return this.itemsSold.reduce((sum, item) => sum + (item.amount || 0), 0);
-    },
-  },
-  watch: {
-    pos_profile: {
-      handler(newVal) {
-        if (newVal?.name) {
-          this.fetchPaymentMethods();
-        }
-      },
-      deep: true,
-    },
   },
   methods: {
     close_dialog() {
@@ -127,10 +111,16 @@ export default {
       evntBus.$emit("close_closing_dialog");
     },
     updatePayment(method, value) {
-      this.paymentMethods[method].closing = parseFloat(value) || 0;
+      if (this.paymentMethods[method]) {
+        Vue.set(this.paymentMethods[method], 'closing', parseFloat(value) || 0);
+        console.log(`Updated ${method} - closing: ${this.paymentMethods[method].closing}, expected: ${this.paymentMethods[method].expected}`);
+      } else {
+        console.warn(`Method ${method} not found in paymentMethods`);
+      }
     },
     async fetchPaymentMethods() {
       try {
+        this.loading = true;
         const response = await frappe.call({
           method: "posawesome.posawesome.api.posapp.get_opening_dialog_data",
           args: {},
@@ -138,178 +128,332 @@ export default {
 
         if (response.message?.payments_method) {
           this.payments_method_data = response.message.payments_method;
-          this.updatePaymentMethods();
+          console.log("Fetched payment methods data:", this.payments_method_data);
         } else {
           console.error("No payment methods returned from backend");
-          frappe.msgprint("Failed to load payment methods.");
+          this.errorMessage = "No payment methods data received from server";
         }
       } catch (error) {
         console.error("Error fetching payment methods:", error);
-        frappe.msgprint("Error loading payment methods: " + (error.message || "Unknown error"));
+        this.errorMessage = "Error loading payment methods: " + (error.message || "Unknown error");
+      } finally {
+        this.loading = false;
       }
     },
     updatePaymentMethods() {
       this.paymentMethods = {};
-      this.payments_method_data.forEach((element) => {
-        if (element.parent === this.pos_profile.name) {
-          this.paymentMethods[element.mode_of_payment] = {
-            closing: 0,
-            expected: 0,
-            currency: element.currency,
-          };
-        }
-      });
-    },
-    async closeShiftAndLogout() {
-      if (!Object.keys(this.paymentMethods).length) {
-        frappe.msgprint("No payment methods available. Please check POS Profile.");
-        return;
+      if (this.payments_method_data && this.payments_method_data.length > 0) {
+        this.payments_method_data.forEach((element) => {
+          if (element.parent === this.pos_profile.name) {
+            Vue.set(this.paymentMethods, element.mode_of_payment, {
+              closing: 0,
+              expected: this.totalSalesByMode[element.mode_of_payment] || 0,
+              currency: element.currency,
+            });
+          }
+        });
+      } else {
+        console.warn("No payment methods data available to initialize");
+        this.errorMessage = "No payment methods data available";
       }
-
-      const closingData = {
-        payment_reconciliation: Object.entries(this.paymentMethods).map(([method, values]) => ({
-          mode_of_payment: method,
-          closing_amount: values.closing,
-          expected_amount: values.expected,
-        })),
-        pos_profile: this.pos_profile.name,
-        opening_shift: this.currentShift || this.pos_opening_shift,
-      };
-
-      evntBus.$emit("submit_closing_pos", closingData);
-
+      console.log("Initialized paymentMethods:", this.paymentMethods);
+    },
+    async fetchTotalSalesByMode(openingShift) {
       try {
-        const response = await frappe.call({
-          method: "frappe.client.set_value",
+        this.loading = true;
+        const invoices = await frappe.call({
+          method: "posawesome.posawesome.doctype.pos_closing_shift.pos_closing_shift.get_pos_invoices",
+          args: { pos_opening_shift: openingShift },
+        });
+
+        const paymentTotals = {};
+        if (invoices.message && Array.isArray(invoices.message)) {
+          invoices.message.forEach(invoice => {
+            invoice.payments.forEach(payment => {
+              const mode = payment.mode_of_payment;
+              paymentTotals[mode] = (paymentTotals[mode] || 0) + (payment.amount || 0);
+            });
+          });
+        } else {
+          console.warn("Invalid invoice data from get_pos_invoices:", invoices.message);
+        }
+
+        this.totalSalesByMode = paymentTotals;
+        console.log("Total Sales by Mode:", this.totalSalesByMode);
+      } catch (err) {
+        console.error("Error fetching total sales by mode:", err);
+        this.errorMessage = "Error fetching sales data: " + (err.message || "Unknown error");
+      } finally {
+        this.loading = false;
+      }
+    },
+    async fetchAllSalesData(openingShift) {
+      try {
+        this.loading = true;
+        const invoices = await frappe.call({
+          method: "posawesome.posawesome.doctype.pos_closing_shift.pos_closing_shift.get_pos_invoices",
+          args: { pos_opening_shift: openingShift },
+        });
+
+        const itemTotals = {};
+        if (invoices.message && Array.isArray(invoices.message)) {
+          invoices.message.forEach(invoice => {
+            invoice.items.forEach(item => {
+              const key = item.item_name;
+              if (itemTotals[key]) {
+                itemTotals[key].qty += item.qty;
+                itemTotals[key].amount += item.amount;
+              } else {
+                itemTotals[key] = {
+                  item_name: item.item_name,
+                  qty: item.qty,
+                  amount: item.amount,
+                };
+              }
+            });
+          });
+        } else {
+          console.warn("Invalid invoice data for items:", invoices.message);
+        }
+
+        this.itemsSold = Object.values(itemTotals);
+        console.log("Aggregated Items Sold:", this.itemsSold);
+      } catch (err) {
+        console.error("Error fetching all sales data:", err);
+        this.errorMessage = "Error fetching sales items: " + (err.message || "Unknown error");
+      } finally {
+        this.loading = false;
+      }
+    },
+    async handleSubmit() {
+      try {
+        if (!this.pos_profile || !this.pos_profile.name) {
+          throw new Error("POS Profile is not defined. Please register a POS Profile.");
+        }
+
+        if (!Object.keys(this.paymentMethods).length) {
+          throw new Error("No payment methods available. Please check POS Profile.");
+        }
+
+        let openingShift;
+        try {
+          const shiftResponse = await frappe.call({
+            method: "frappe.client.get_list",
+            args: {
+              doctype: "POS Opening Shift",
+              filters: [["pos_profile", "=", this.pos_profile.name], ["status", "=", "Open"]],
+              fields: ["name"],
+              order_by: "creation desc",
+              limit_page_length: 1,
+            },
+          });
+          openingShift = shiftResponse.message?.[0]?.name;
+          if (!openingShift) {
+            throw new Error("No open shift found for this POS Profile.");
+          }
+        } catch (err) {
+          console.error("Error fetching opening shift:", err);
+          throw new Error("Error fetching open shift: " + (err.message || "Unknown error"));
+        }
+
+        await this.fetchTotalSalesByMode(openingShift);
+        await this.fetchAllSalesData(openingShift);
+
+        const finalPaymentMethods = JSON.parse(JSON.stringify(this.paymentMethods));
+        console.log("Final Payment Methods before submission:", finalPaymentMethods);
+
+        Object.keys(finalPaymentMethods).forEach(method => {
+          finalPaymentMethods[method].expected = this.totalSalesByMode[method] || 0;
+        });
+
+        const closingData = {
+          doctype: "POS Closing Shift",
+          pos_profile: this.pos_profile.name,
+          user: this.user,
+          pos_opening_shift: openingShift,
+          period_end_date: frappe.datetime.now_datetime(),
+          payment_reconciliation: Object.entries(finalPaymentMethods).map(([method, values]) => ({
+            mode_of_payment: method,
+            opening_amount: 0,
+            expected_amount: values.expected || 0,
+            closing_amount: values.closing || 0,
+          })),
+        };
+
+        console.log("Closing Data sent to server:", closingData);
+        evntBus.$emit("submit_closing_pos", closingData);
+
+        const closeResponse = await frappe.call({
+          method: "posawesome.posawesome.doctype.pos_closing_shift.pos_closing_shift.submit_closing_shift",
           args: {
-            doctype: "POS Profile",
-            name: this.pos_profile.name,
-            fieldname: "status",
-            value: "Closed",
+            closing_shift: JSON.stringify(closingData),
           },
         });
 
-        if (response.message) {
-          await this.fetchLastInvoice();
-          this.closingDialog = false;
-          this.reportDialog = true;
+        console.log("Close Shift Response:", closeResponse);
+
+        if (!closeResponse.message || !closeResponse.message.message) {
+          const errorMsg = closeResponse.exc || closeResponse.message?.error || "Unknown server error";
+          throw new Error(errorMsg);
         }
+
+        evntBus.$emit("show_mesage", {
+          text: "POS Shift Closed",
+          color: "success",
+        });
+
+        this.paymentMethods = { ...finalPaymentMethods };
+        console.log("Payment Methods for report:", this.paymentMethods);
+        await this.printDailyReport();
+
+        this.closingDialog = false;
+        await this.logoutAndRedirect();
+
       } catch (err) {
-        console.error("Shift close error:", err);
-        frappe.msgprint("Error closing shift: " + err.message);
-      }
-    },
-    async fetchLastInvoice() {
-      const response = await frappe.call({
-        method: "frappe.client.get_list",
-        args: {
-          doctype: "Sales Invoice",
-          fields: ["name"],
-          order_by: "creation desc",
-          limit_page_length: 1,
-        },
-      });
-
-      if (response.message?.length) {
-        this.last_invoice = response.message[0].name;
-        await this.fetchItemsSold();
-      }
-    },
-    async fetchItemsSold() {
-      if (!this.last_invoice) return;
-
-      const response = await frappe.call({
-        method: "frappe.client.get",
-        args: { doctype: "Sales Invoice", name: this.last_invoice },
-      });
-
-      if (response.message) {
-        this.itemsSold = response.message.items.map(item => ({
-          item_name: item.item_name,
-          qty: item.qty,
-          amount: item.amount,
-        }));
-      }
-    },
-    resetShiftData() {
-      Object.values(this.paymentMethods).forEach(method => {
-        method.closing = 0;
-        method.expected = 0;
-      });
-      this.payInTotal = 0;
-      this.payOutTotal = 0;
-      this.payInEntries = [];
-      this.payOutEntries = [];
-      this.itemsSold = [];
-      evntBus.$emit("shift_opened");
-    },
-    async printReportAndLogout() {
-      this.$nextTick(async () => {
-        const printWindow = window.open("", "_blank");
-        printWindow.document.write(await this.$refs.reportContent.getPrintContent());
-        printWindow.document.close();
-        printWindow.focus();
-
-        this.reportDialog = false;
-        this.resetShiftData();
+        console.error("Error in submit process:", err);
+        this.errorMessage = "Error submitting shift: " + (err.message || "An unexpected error occurred");
+        frappe.msgprint({
+          title: __("Error"),
+          indicator: "red",
+          message: this.errorMessage,
+        });
 
         try {
-          const response = await fetch("/api/method/logout", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "X-Frappe-CSRF-Token": frappe.csrf_token || "",
-              "Cache-Control": "no-cache, no-store, must-revalidate",
-              Pragma: "no-cache",
-              Expires: "0",
-            },
-            credentials: "include",
+          await this.printDailyReport();
+        } catch (reportErr) {
+          console.error("Error printing report after failure:", reportErr);
+          frappe.msgprint({
+            title: __("Error"),
+            indicator: "red",
+            message: "Failed to print daily report: " + (reportErr.message || "Unknown error"),
           });
-
-          if (response.ok) {
-            localStorage.clear();
-            sessionStorage.clear();
-            document.cookie.split(";").forEach(c => {
-              document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
-            });
-            window.location.replace("/login?nocache=" + Date.now());
-          }
-        } catch (error) {
-          console.error("Logout error:", error);
-          frappe.msgprint("Logout failed: " + error.message);
         }
-      });
+
+        this.closingDialog = false;
+        await this.logoutAndRedirect();
+      }
     },
-    updatePitiTotals(data) {
-      this.payInTotal += parseFloat(data.payInAmount || 0);
-      this.payOutTotal += parseFloat(data.payOutAmount || 0);
-      if (data.payInEntries) this.payInEntries = data.payInEntries;
-      if (data.payOutEntries) this.payOutEntries = data.payOutEntries;
+    async printDailyReport() {
+      try {
+        await this.$nextTick();
+        console.log("Payment Methods at print time:", this.paymentMethods);
+        if (!this.$refs.reportContent || typeof this.$refs.reportContent.getPrintContent !== "function") {
+          throw new Error("Daily Report component or getPrintContent method is not available");
+        }
+        const printContent = await this.$refs.reportContent.getPrintContent();
+        if (!printContent) {
+          throw new Error("No content generated for daily report");
+        }
+        const printWindow = window.open("", "_blank");
+        printWindow.document.write(printContent);
+        printWindow.document.close();
+        printWindow.focus();
+        printWindow.print();
+        printWindow.close();
+      } catch (err) {
+        console.error("Error printing daily report:", err);
+        throw err;
+      }
     },
-    handleShiftOpened() {
-      this.openShiftDialog = false;
-      this.resetShiftData();
+    async logoutAndRedirect() {
+      try {
+        const response = await fetch("/api/method/logout", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Frappe-CSRF-Token": frappe.csrf_token || "",
+          },
+          credentials: "include",
+        });
+
+        if (!response.ok) {
+          console.warn("Logout request failed with status:", response.status);
+        }
+      } catch (error) {
+        console.error("Logout error:", error);
+      } finally {
+        localStorage.clear();
+        sessionStorage.clear();
+        document.cookie.split(";").forEach(c => {
+          document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+        });
+        window.location.replace("/login?nocache=" + Date.now());
+      }
     },
   },
   created() {
-    evntBus.$on("open_ClosingDialog", (data) => {
+    evntBus.$on("open_ClosingDialog", async (data) => {
+      this.loading = true;
+      this.errorMessage = null;
+
       if (data?.payment_reconciliation) {
         data.payment_reconciliation.forEach(p => {
           if (this.paymentMethods[p.mode_of_payment]) {
             this.paymentMethods[p.mode_of_payment].closing = parseFloat(p.closing_amount || 0);
             this.paymentMethods[p.mode_of_payment].expected = parseFloat(p.expected_amount || 0);
+            console.log(`Loaded ${p.mode_of_payment} - closing: ${p.closing_amount}, expected: ${p.expected_amount}`);
           }
         });
         this.currentShift = data.name;
       }
-      this.closingDialog = true;
+
+      let openingShift;
+      try {
+        const shiftResponse = await frappe.call({
+          method: "frappe.client.get_list",
+          args: {
+            doctype: "POS Opening Shift",
+            filters: [["pos_profile", "=", this.pos_profile.name], ["status", "=", "Open"]],
+            fields: ["name"],
+            order_by: "creation desc",
+            limit_page_length: 1,
+          },
+        });
+        openingShift = shiftResponse.message?.[0]?.name;
+        if (!openingShift) {
+          throw new Error("No open shift found for this POS Profile.");
+        }
+        this.currentShift = openingShift;
+      } catch (err) {
+        console.error("Error fetching opening shift in created:", err);
+        this.errorMessage = "Error fetching open shift: " + (err.message || "Unknown error");
+        this.loading = false;
+        this.closingDialog = true;
+        return;
+      }
+
+      try {
+        await this.fetchPaymentMethods();
+        await this.fetchTotalSalesByMode(openingShift);
+        await this.fetchAllSalesData(openingShift);
+
+        this.updatePaymentMethods();
+        console.log("Payment Methods before dialog display:", this.paymentMethods);
+
+        if (Object.keys(this.paymentMethods).length === 0) {
+          this.errorMessage = "No payment methods initialized";
+        }
+      } catch (err) {
+        console.error("Error preparing dialog data:", err);
+        this.errorMessage = "Error preparing dialog: " + (err.message || "Unknown error");
+      } finally {
+        this.loading = false;
+        this.closingDialog = true;
+        console.log("Dialog opened with paymentMethods:", this.paymentMethods);
+      }
     });
 
     evntBus.$on("register_pos_profile", (data) => {
       this.pos_profile = data.pos_profile || { currency: "KWD" };
+      console.log("Registered POS Profile:", this.pos_profile);
     });
 
-    evntBus.$on("update-piti-totals", this.updatePitiTotals);
+    evntBus.$on("update-piti-totals", (data) => {
+      this.payInTotal += parseFloat(data.payInAmount || 0);
+      this.payOutTotal += parseFloat(data.payOutAmount || 0);
+      if (data.payInEntries) this.payInEntries = data.payInEntries;
+      if (data.payOutEntries) this.payOutEntries = data.payOutEntries;
+    });
   },
   beforeDestroy() {
     evntBus.$off("open_ClosingDialog");
@@ -332,6 +476,7 @@ export default {
 
 .v-card-text {
   padding: 1.5rem;
+  min-height: 200px;
 }
 
 .v-card-actions {
@@ -344,4 +489,9 @@ export default {
   font-size: 1rem;
   font-weight: 500;
 }
+
+.text-red-500 {
+  color: #ef4444;
+}
+
 </style>
