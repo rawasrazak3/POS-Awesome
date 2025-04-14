@@ -1,3 +1,4 @@
+```vue
 <template>
   <nav>
     <v-app-bar app height="60" class="elevation-2">
@@ -25,7 +26,7 @@
 
       <v-spacer></v-spacer>
 
-      <!-- Pay In and Pay Out buttons -->
+      <!-- Pay In and Pay Out buttons (now for Petty Cash) -->
       <v-btn class="pay-btn mr-2" color="success" @click="payInDialog = true">
         Pay In
       </v-btn>
@@ -129,22 +130,22 @@
       </v-list>
     </v-navigation-drawer>
 
-    <!-- Pay In Modal -->
+    <!-- Pay In Modal (now for Petty Cash Pay In) -->
     <v-dialog v-model="payInDialog" max-width="400">
       <v-card>
-        <v-card-title class="headline success white--text">Pay In</v-card-title>
+        <v-card-title class="headline success white--text">Petty Cash Pay In</v-card-title>
         <v-card-text class="pt-4">
           <v-textarea
             v-model="payInNote"
             label="Note"
             outlined
             rows="3"
+            :rules="[rules.requiredNote]"
           ></v-textarea>
           <v-text-field
             v-model="payInAmount"
             label="Amount"
             type="number"
-            prefix="$"
             outlined
             :rules="[rules.required, rules.positiveNumber]"
           ></v-text-field>
@@ -152,27 +153,27 @@
         <v-card-actions>
           <v-spacer></v-spacer>
           <v-btn text @click="payInDialog = false">Cancel</v-btn>
-          <v-btn color="success" @click="submitPayIn">Submit</v-btn>
+          <v-btn color="success" @click="submitPettyCashPayIn">Submit</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
 
-    <!-- Pay Out Modal -->
+    <!-- Pay Out Modal (now for Petty Cash Pay Out) -->
     <v-dialog v-model="payOutDialog" max-width="400">
       <v-card>
-        <v-card-title class="headline error white--text">Pay Out</v-card-title>
+        <v-card-title class="headline error white--text">Petty Cash Pay Out</v-card-title>
         <v-card-text class="pt-4">
           <v-textarea
             v-model="payOutNote"
             label="Note"
             outlined
             rows="3"
+            :rules="[rules.requiredNote]"
           ></v-textarea>
           <v-text-field
             v-model="payOutAmount"
             label="Amount"
             type="number"
-            prefix="$"
             outlined
             :rules="[rules.required, rules.positiveNumber]"
           ></v-text-field>
@@ -180,13 +181,12 @@
         <v-card-actions>
           <v-spacer></v-spacer>
           <v-btn text @click="payOutDialog = false">Cancel</v-btn>
-          <v-btn color="error" @click="submitPayOut">Submit</v-btn>
+          <v-btn color="error" @click="submitPettyCashPayOut">Submit</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
 
-    <!-- Modified Snackbar - Positioned at top center -->
-    <v-snackbar v-model="snack" :timeout="2000" :color="snackColor" top class="top-center-snackbar">
+    <v-snackbar v-model="snack" :timeout="5000" :color="snackColor" top class="top-center-snackbar">
       {{ snackText }}
     </v-snackbar>
 
@@ -223,7 +223,7 @@ export default {
       freezeMsg: "",
       last_invoice: "",
       logged_out: false,
-      // Pay In/Out properties
+      // Pay In/Out properties (now for Petty Cash)
       payInDialog: false,
       payOutDialog: false,
       payInAmount: "",
@@ -236,7 +236,8 @@ export default {
       payOutEntries: [],
       rules: {
         required: (value) => !!value || "Required",
-        positiveNumber: (value) => value > 0 || "Must be greater than 0",
+        requiredNote: (value) => !!value || "Note is required",
+        positiveNumber: (value) => (value > 0 || "Must be greater than 0"),
       },
     };
   },
@@ -315,49 +316,125 @@ export default {
       const printWindow = window.open(url, "Print");
       printWindow.addEventListener("load", () => printWindow.print(), true);
     },
-    submitPayIn() {
-      if (!this.validatePayment(this.payInAmount)) return;
-      
+    async submitPettyCashPayIn() {
+      if (!this.validatePayment(this.payInAmount, this.payInNote)) return;
+
       const amount = parseFloat(this.payInAmount);
-      this.payInTotal += amount;
-      this.payInEntries.push({
-        amount,
-        note: this.payInNote || "No note provided",
-      });
-      
-      this.emitPaymentUpdate(amount, 0);
-      this.showSuccessMessage("Pay In", amount);
-      this.resetPaymentForm("payIn");
+      const currentBalance = this.payInTotal - this.payOutTotal;
+
+      try {
+        this.freeze = true;
+        this.freezeTitle = "Processing Petty Cash Pay In";
+        this.freezeMsg = "Please wait...";
+
+        const response = await frappe.call({
+          method: "posawesome.posawesome.api.petty_cash.create_petty_cash",
+          args: {
+            date: frappe.datetime.now_date(),
+            entry_type: "Pay In",
+            pos_profile: this.pos_profile.name,
+            amount: amount,
+            note: this.payInNote,
+          },
+        });
+
+        if (response.message.status === "success") {
+          this.show_mesage({
+            text: "Petty Cash Pay In created and submitted",
+            color: "success",
+          });
+          this.payInTotal += amount;
+          this.payInEntries.push({
+            amount,
+            note: this.payInNote,
+          });
+          this.emitPaymentUpdate(amount, 0);
+        } else {
+          this.show_mesage({
+            text: response.message.message || "Failed to process Petty Cash Pay In",
+            color: "error",
+          });
+        }
+      } catch (error) {
+        this.show_mesage({
+          text: `Petty Cash Pay In Error: ${error.message || "Unknown error"}`,
+          color: "error",
+        });
+        console.error("Petty Cash Pay In error:", error);
+      } finally {
+        this.freeze = false;
+        this.resetPaymentForm("payIn");
+      }
     },
-    submitPayOut() {
-      if (!this.validatePayment(this.payOutAmount)) return;
-      
+    async submitPettyCashPayOut() {
+      if (!this.validatePayment(this.payOutAmount, this.payOutNote)) return;
+
       const amount = parseFloat(this.payOutAmount);
       const availableBalance = this.payInTotal - this.payOutTotal;
 
-      // Check if there's sufficient balance
       if (amount > availableBalance) {
         this.show_mesage({
-          text: "Insufficient balance for payout",
+          text: "Insufficient balance for Pay Out",
           color: "error",
         });
         return;
       }
 
-      this.payOutTotal += amount;
-      this.payOutEntries.push({
-        amount,
-        note: this.payOutNote || "No note provided",
-      });
-      
-      this.emitPaymentUpdate(0, amount);
-      this.showSuccessMessage("Pay Out", amount);
-      this.resetPaymentForm("payOut");
+      try {
+        this.freeze = true;
+        this.freezeTitle = "Processing Petty Cash Pay Out";
+        this.freezeMsg = "Please wait...";
+
+        const response = await frappe.call({
+          method: "posawesome.posawesome.api.petty_cash.create_petty_cash",
+          args: {
+            date: frappe.datetime.now_date(),
+            entry_type: "Pay Out",
+            pos_profile: this.pos_profile.name,
+            amount: amount,
+            note: this.payOutNote,
+          },
+        });
+
+        if (response.message.status === "success") {
+          this.show_mesage({
+            text: "Petty Cash Pay Out created and submitted",
+            color: "success",
+          });
+          this.payOutTotal += amount;
+          this.payOutEntries.push({
+            amount,
+            note: this.payOutNote,
+          });
+          this.emitPaymentUpdate(0, amount);
+        } else {
+          this.show_mesage({
+            text: response.message.message || "Failed to process Petty Cash Pay Out",
+            color: "error",
+          });
+        }
+      } catch (error) {
+        this.show_mesage({
+          text: `Petty Cash Pay Out Error: ${error.message || "Unknown error"}`,
+          color: "error",
+        });
+        console.error("Petty Cash Pay Out error:", error);
+      } finally {
+        this.freeze = false;
+        this.resetPaymentForm("payOut");
+      }
     },
-    validatePayment(amount) {
+    validatePayment(amount, note) {
       if (!amount || amount <= 0) {
         this.show_mesage({
-          text: "Please enter a valid amount",
+          text: "Please enter a valid amount greater than 0",
+          color: "error",
+        });
+        return false;
+      }
+      if (!note || note.trim() === "") {
+        this.show_mesage({
+          text: "Please provide a note for the transaction",
           color: "error",
         });
         return false;
@@ -379,9 +456,15 @@ export default {
       });
     },
     resetPaymentForm(type) {
-      this[`${type}Amount`] = "";
-      this[`${type}Note`] = "";
-      this[`${type}Dialog`] = false;
+      if (type === "payIn") {
+        this.payInAmount = "";
+        this.payInNote = "";
+        this.payInDialog = false;
+      } else {
+        this.payOutAmount = "";
+        this.payOutNote = "";
+        this.payOutDialog = false;
+      }
     },
   },
   created() {

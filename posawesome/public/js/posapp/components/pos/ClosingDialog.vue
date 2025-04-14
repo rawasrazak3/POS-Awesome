@@ -12,34 +12,54 @@
             v-else-if="Object.keys(paymentMethods).length > 0"
             :payment-methods="paymentMethods"
             :currency="pos_profile.currency"
+            :hide-expected-amount="pos_profile.hide_expected_amount"
             @update-payment="updatePayment"
           />
           <!-- Fallback table for debugging -->
           <v-simple-table v-else-if="Object.keys(paymentMethods).length > 0" class="fallback-table">
             <thead>
               <tr>
-                <th class="text-left">Payment Type</th>
-                <th class="text-right">Closing Amount</th>
-                <th class="text-right">Expected Amount</th>
-                <th class="text-right">Difference</th>
+                <th class="text-left">{{ __("Payment Type") }}</th>
+                <th class="text-right">{{ __("Closing Amount") }}</th>
+                <th v-if="!pos_profile.hide_expected_amount" class="text-right">{{ __("Expected Amount") }}</th>
+                <th v-if="!pos_profile.hide_expected_amount" class="text-right">{{ __("Excess") }}</th>
               </tr>
             </thead>
             <tbody>
               <tr v-for="(values, method) in paymentMethods" :key="method">
                 <td class="text-left">{{ method }}</td>
-                <td class="text-right">{{ currencySymbol(pos_profile.currency) }} {{ formtCurrency(values.closing || 0) }}</td>
-                <td class="text-right">{{ currencySymbol(pos_profile.currency) }} {{ formtCurrency(values.expected || 0) }}</td>
-                <td class="text-right">{{ currencySymbol(pos_profile.currency) }} {{ formtCurrency((values.expected || 0) - (values.closing || 0)) }}</td>
+                <td class="text-right">
+                  {{ currencySymbol(pos_profile.currency) }} {{ formtCurrency(values.closing || 0) }}
+                </td>
+                <td v-if="!pos_profile.hide_expected_amount" class="text-right">
+                  {{ currencySymbol(pos_profile.currency) }} {{ formtCurrency(values.expected || 0) }}
+                </td>
+                <td v-if="!pos_profile.hide_expected_amount" class="text-right">
+                  <span v-if="values.closing != null && values.closing !== 0">
+                    {{ currencySymbol(pos_profile.currency) }}
+                    {{ formtCurrency((values.closing || 0) - (values.expected || 0)) }}
+                  </span>
+                  <span v-else>
+                    {{ currencySymbol(pos_profile.currency) }} {{ formtCurrency(0) }}
+                  </span>
+                </td>
               </tr>
             </tbody>
           </v-simple-table>
           <div v-else class="text-center text-red-500">
-            No payment methods available. Error: {{ errorMessage || "Unknown error" }}
+            {{ __("No payment methods available. Error:") }} {{ errorMessage || __("Unknown error") }}
           </div>
         </v-card-text>
         <v-card-actions class="pa-4">
           <v-spacer />
-          <v-btn color="error" dark @click="close_dialog" class="px-6 min-w-[100px] rounded-lg text-base font-medium">{{ __("Close") }}</v-btn>
+          <v-btn
+            color="error"
+            dark
+            @click="close_dialog"
+            class="px-6 min-w-[100px] rounded-lg text-base font-medium"
+          >
+            {{ __("Close") }}
+          </v-btn>
           <v-btn
             color="success"
             dark
@@ -82,7 +102,7 @@ export default {
   },
   data: () => ({
     closingDialog: false,
-    pos_profile: { currency: "KWD" },
+    pos_profile: { currency: "KWD", hide_expected_amount: false },
     paymentMethods: {},
     payments_method_data: [],
     currentShift: null,
@@ -99,7 +119,9 @@ export default {
   computed: {
     currentDate() {
       const today = new Date();
-      return `${today.getDate().toString().padStart(2, "0")}/${(today.getMonth() + 1).toString().padStart(2, "0")}/${today.getFullYear()}`;
+      return `${today.getDate().toString().padStart(2, "0")}/${(today.getMonth() + 1)
+        .toString()
+        .padStart(2, "0")}/${today.getFullYear()}`;
     },
     currentTime() {
       return new Date().toLocaleTimeString();
@@ -112,8 +134,12 @@ export default {
     },
     updatePayment(method, value) {
       if (this.paymentMethods[method]) {
-        Vue.set(this.paymentMethods[method], 'closing', parseFloat(value) || 0);
-        console.log(`Updated ${method} - closing: ${this.paymentMethods[method].closing}, expected: ${this.paymentMethods[method].expected}`);
+        Vue.set(this.paymentMethods[method], "closing", parseFloat(value) || 0);
+        console.log(
+          `Updated ${method} - closing: ${this.paymentMethods[method].closing}, expected: ${
+            this.paymentMethods[method].expected
+          }`
+        );
       } else {
         console.warn(`Method ${method} not found in paymentMethods`);
       }
@@ -131,11 +157,12 @@ export default {
           console.log("Fetched payment methods data:", this.payments_method_data);
         } else {
           console.error("No payment methods returned from backend");
-          this.errorMessage = "No payment methods data received from server";
+          this.errorMessage = __("No payment methods data received from server");
         }
       } catch (error) {
         console.error("Error fetching payment methods:", error);
-        this.errorMessage = "Error loading payment methods: " + (error.message || "Unknown error");
+        this.errorMessage =
+          __("Error loading payment methods: ") + (error.message || __("Unknown error"));
       } finally {
         this.loading = false;
       }
@@ -154,7 +181,7 @@ export default {
         });
       } else {
         console.warn("No payment methods data available to initialize");
-        this.errorMessage = "No payment methods data available";
+        this.errorMessage = __("No payment methods data available");
       }
       console.log("Initialized paymentMethods:", this.paymentMethods);
     },
@@ -168,8 +195,8 @@ export default {
 
         const paymentTotals = {};
         if (invoices.message && Array.isArray(invoices.message)) {
-          invoices.message.forEach(invoice => {
-            invoice.payments.forEach(payment => {
+          invoices.message.forEach((invoice) => {
+            invoice.payments.forEach((payment) => {
               const mode = payment.mode_of_payment;
               paymentTotals[mode] = (paymentTotals[mode] || 0) + (payment.amount || 0);
             });
@@ -182,7 +209,8 @@ export default {
         console.log("Total Sales by Mode:", this.totalSalesByMode);
       } catch (err) {
         console.error("Error fetching total sales by mode:", err);
-        this.errorMessage = "Error fetching sales data: " + (err.message || "Unknown error");
+        this.errorMessage =
+          __("Error fetching sales data: ") + (err.message || __("Unknown error"));
       } finally {
         this.loading = false;
       }
@@ -197,8 +225,8 @@ export default {
 
         const itemTotals = {};
         if (invoices.message && Array.isArray(invoices.message)) {
-          invoices.message.forEach(invoice => {
-            invoice.items.forEach(item => {
+          invoices.message.forEach((invoice) => {
+            invoice.items.forEach((item) => {
               const key = item.item_name;
               if (itemTotals[key]) {
                 itemTotals[key].qty += item.qty;
@@ -220,7 +248,8 @@ export default {
         console.log("Aggregated Items Sold:", this.itemsSold);
       } catch (err) {
         console.error("Error fetching all sales data:", err);
-        this.errorMessage = "Error fetching sales items: " + (err.message || "Unknown error");
+        this.errorMessage =
+          __("Error fetching sales items: ") + (err.message || __("Unknown error"));
       } finally {
         this.loading = false;
       }
@@ -228,11 +257,11 @@ export default {
     async handleSubmit() {
       try {
         if (!this.pos_profile || !this.pos_profile.name) {
-          throw new Error("POS Profile is not defined. Please register a POS Profile.");
+          throw new Error(__("POS Profile is not defined. Please register a POS Profile."));
         }
 
         if (!Object.keys(this.paymentMethods).length) {
-          throw new Error("No payment methods available. Please check POS Profile.");
+          throw new Error(__("No payment methods available. Please check POS Profile."));
         }
 
         let openingShift;
@@ -249,11 +278,13 @@ export default {
           });
           openingShift = shiftResponse.message?.[0]?.name;
           if (!openingShift) {
-            throw new Error("No open shift found for this POS Profile.");
+            throw new Error(__("No open shift found for this POS Profile."));
           }
         } catch (err) {
           console.error("Error fetching opening shift:", err);
-          throw new Error("Error fetching open shift: " + (err.message || "Unknown error"));
+          throw new Error(
+            __("Error fetching open shift: ") + (err.message || __("Unknown error"))
+          );
         }
 
         await this.fetchTotalSalesByMode(openingShift);
@@ -262,7 +293,7 @@ export default {
         const finalPaymentMethods = JSON.parse(JSON.stringify(this.paymentMethods));
         console.log("Final Payment Methods before submission:", finalPaymentMethods);
 
-        Object.keys(finalPaymentMethods).forEach(method => {
+        Object.keys(finalPaymentMethods).forEach((method) => {
           finalPaymentMethods[method].expected = this.totalSalesByMode[method] || 0;
         });
 
@@ -298,7 +329,7 @@ export default {
         }
 
         evntBus.$emit("show_mesage", {
-          text: "POS Shift Closed",
+          text: __("POS Shift Closed"),
           color: "success",
         });
 
@@ -308,10 +339,10 @@ export default {
 
         this.closingDialog = false;
         await this.logoutAndRedirect();
-
       } catch (err) {
         console.error("Error in submit process:", err);
-        this.errorMessage = "Error submitting shift: " + (err.message || "An unexpected error occurred");
+        this.errorMessage =
+          __("Error submitting shift: ") + (err.message || __("An unexpected error occurred"));
         frappe.msgprint({
           title: __("Error"),
           indicator: "red",
@@ -325,7 +356,8 @@ export default {
           frappe.msgprint({
             title: __("Error"),
             indicator: "red",
-            message: "Failed to print daily report: " + (reportErr.message || "Unknown error"),
+            message:
+              __("Failed to print daily report: ") + (reportErr.message || __("Unknown error")),
           });
         }
 
@@ -338,11 +370,11 @@ export default {
         await this.$nextTick();
         console.log("Payment Methods at print time:", this.paymentMethods);
         if (!this.$refs.reportContent || typeof this.$refs.reportContent.getPrintContent !== "function") {
-          throw new Error("Daily Report component or getPrintContent method is not available");
+          throw new Error(__("Daily Report component or getPrintContent method is not available"));
         }
         const printContent = await this.$refs.reportContent.getPrintContent();
         if (!printContent) {
-          throw new Error("No content generated for daily report");
+          throw new Error(__("No content generated for daily report"));
         }
         const printWindow = window.open("", "_blank");
         printWindow.document.write(printContent);
@@ -374,8 +406,10 @@ export default {
       } finally {
         localStorage.clear();
         sessionStorage.clear();
-        document.cookie.split(";").forEach(c => {
-          document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+        document.cookie.split(";").forEach((c) => {
+          document.cookie = c
+            .replace(/^ +/, "")
+            .replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
         });
         window.location.replace("/login?nocache=" + Date.now());
       }
@@ -387,11 +421,13 @@ export default {
       this.errorMessage = null;
 
       if (data?.payment_reconciliation) {
-        data.payment_reconciliation.forEach(p => {
+        data.payment_reconciliation.forEach((p) => {
           if (this.paymentMethods[p.mode_of_payment]) {
             this.paymentMethods[p.mode_of_payment].closing = parseFloat(p.closing_amount || 0);
             this.paymentMethods[p.mode_of_payment].expected = parseFloat(p.expected_amount || 0);
-            console.log(`Loaded ${p.mode_of_payment} - closing: ${p.closing_amount}, expected: ${p.expected_amount}`);
+            console.log(
+              `Loaded ${p.mode_of_payment} - closing: ${p.closing_amount}, expected: ${p.expected_amount}`
+            );
           }
         });
         this.currentShift = data.name;
@@ -411,12 +447,13 @@ export default {
         });
         openingShift = shiftResponse.message?.[0]?.name;
         if (!openingShift) {
-          throw new Error("No open shift found for this POS Profile.");
+          throw new Error(__("No open shift found for this POS Profile."));
         }
         this.currentShift = openingShift;
       } catch (err) {
         console.error("Error fetching opening shift in created:", err);
-        this.errorMessage = "Error fetching open shift: " + (err.message || "Unknown error");
+        this.errorMessage =
+          __("Error fetching open shift: ") + (err.message || __("Unknown error"));
         this.loading = false;
         this.closingDialog = true;
         return;
@@ -431,11 +468,11 @@ export default {
         console.log("Payment Methods before dialog display:", this.paymentMethods);
 
         if (Object.keys(this.paymentMethods).length === 0) {
-          this.errorMessage = "No payment methods initialized";
+          this.errorMessage = __("No payment methods initialized");
         }
       } catch (err) {
         console.error("Error preparing dialog data:", err);
-        this.errorMessage = "Error preparing dialog: " + (err.message || "Unknown error");
+        this.errorMessage = __("Error preparing dialog: ") + (err.message || __("Unknown error"));
       } finally {
         this.loading = false;
         this.closingDialog = true;
@@ -444,7 +481,7 @@ export default {
     });
 
     evntBus.$on("register_pos_profile", (data) => {
-      this.pos_profile = data.pos_profile || { currency: "KWD" };
+      this.pos_profile = data.pos_profile || { currency: "KWD", hide_expected_amount: false };
       console.log("Registered POS Profile:", this.pos_profile);
     });
 
@@ -493,5 +530,4 @@ export default {
 .text-red-500 {
   color: #ef4444;
 }
-
 </style>

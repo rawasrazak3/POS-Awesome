@@ -2,7 +2,7 @@ import frappe
 from frappe import _
 
 @frappe.whitelist()
-def create_petty_cash(date, entry_type, pos_profile, amount, note, opening_amount, closing_amount):
+def create_petty_cash(date, entry_type, pos_profile, amount, note,):
     try:
         doc = frappe.new_doc("Petty Cash")
         doc.date = date
@@ -10,8 +10,8 @@ def create_petty_cash(date, entry_type, pos_profile, amount, note, opening_amoun
         doc.pos_profile = pos_profile
         doc.amount = amount
         doc.note = note
-        doc.opening_amount = opening_amount
-        doc.closing_amount = closing_amount
+        # doc.opening_amount = opening_amount
+        # doc.closing_amount = closing_amount
 
         doc.insert(ignore_permissions=True)
         doc.submit()
