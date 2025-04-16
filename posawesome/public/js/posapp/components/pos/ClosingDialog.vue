@@ -35,13 +35,8 @@
                   {{ currencySymbol(pos_profile.currency) }} {{ formtCurrency(values.expected || 0) }}
                 </td>
                 <td v-if="!pos_profile.hide_expected_amount" class="text-right">
-                  <span v-if="values.closing != null && values.closing !== 0">
-                    {{ currencySymbol(pos_profile.currency) }}
-                    {{ formtCurrency((values.closing || 0) - (values.expected || 0)) }}
-                  </span>
-                  <span v-else>
-                    {{ currencySymbol(pos_profile.currency) }} {{ formtCurrency(0) }}
-                  </span>
+                  {{ currencySymbol(pos_profile.currency) }}
+                  {{ formtCurrency((values.closing != null ? values.closing : 0) - (values.expected || 0)) }}
                 </td>
               </tr>
             </tbody>
@@ -173,7 +168,7 @@ export default {
         this.payments_method_data.forEach((element) => {
           if (element.parent === this.pos_profile.name) {
             Vue.set(this.paymentMethods, element.mode_of_payment, {
-              closing: 0,
+              closing: null, // Changed to null to show -expected by default
               expected: this.totalSalesByMode[element.mode_of_payment] || 0,
               currency: element.currency,
             });

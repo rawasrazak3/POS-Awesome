@@ -61,7 +61,7 @@
           <th class="text-left" style="width: 40%;">Payment Type</th>
           <th class="text-right amount-column">Closing Amount</th>
           <th class="text-right amount-column">Expected Amount</th>
-          <th class="text-right amount-column">Difference</th>
+          <th class="text-right amount-column">Excess/Short</th>
         </tr>
       </thead>
       <tbody>
@@ -70,10 +70,7 @@
           <td class="text-right amount-column">{{ currencySymbol(posProfile.currency) }} {{ formtCurrency(values.closing || 0) }}</td>
           <td class="text-right amount-column">{{ currencySymbol(posProfile.currency) }} {{ formtCurrency(values.expected || 0) }}</td>
           <td class="text-right amount-column">
-            <span v-if="values.closing != null && values.closing !== 0">
-              {{ currencySymbol(posProfile.currency) }} {{ formtCurrency((values.closing || 0) - (values.expected || 0)) }}
-            </span>
-            <span v-else>{{ currencySymbol(posProfile.currency) }} {{ formtCurrency(0) }}</span>
+            {{ currencySymbol(posProfile.currency) }} {{ formtCurrency((values.closing != null ? values.closing : 0) - (values.expected || 0)) }}
           </td>
         </tr>
         <tr class="total-row">
@@ -128,10 +125,7 @@ export default {
     },
     totalDifference() {
       return Object.values(this.paymentMethods).reduce((sum, method) => {
-        if (method.closing != null && method.closing !== 0) {
-          return sum + ((parseFloat(method.closing) || 0) - (parseFloat(method.expected) || 0));
-        }
-        return sum + 0; // Add 0 for methods with no closing amount
+        return sum + ((method.closing != null ? parseFloat(method.closing) : 0) - (parseFloat(method.expected) || 0));
       }, 0);
     },
   },
