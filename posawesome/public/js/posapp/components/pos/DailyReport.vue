@@ -1,7 +1,7 @@
 <template>
   <div class="report-preview">
     <div class="text-center mb-6">
-      <h1>VR Mania Avenues</h1>
+      <h1>VR Mania {{ posProfile.name }}</h1>
       <div class="subtitle">Daily Shift Report</div>
     </div>
 
@@ -90,10 +90,6 @@
           <div class="signature-line" />
           <div>Cashier's Signature</div>
         </div>
-        <div class="signature-right">
-          <div class="signature-line" />
-          <div>Manager's Signature</div>
-        </div>
       </div>
     </div>
   </div>
@@ -134,7 +130,7 @@ export default {
       return `
         <html>
           <head>
-            <title>Daily Report - VR Mania</title>
+            <title>Daily Report - ${this.posProfile.name}</title>
             <style>
               body { font-family: Arial, sans-serif; padding: 20px; }
               h1 { font-size: 24px; font-weight: bold; margin-bottom: 4px; text-align: center; }
