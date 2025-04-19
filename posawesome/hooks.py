@@ -257,6 +257,13 @@ fixtures = [
                     "POS Profile-posa_allow_reconcile_payments",
                     "POS Profile-column_break_uolvm",
                     "POS Profile-posa_allow_mpesa_reconcile_payments",
+                    "POS Closing Shift-custom_petty_cash",
+                    "POS Closing Shift-custom_petty_cash_in",
+                    "POS Closing Shift-custom_total_payin",
+                    "POS Closing Shift-custom_closing_amount",
+                    "POS Closing Shift-custom_column_break_3oqyz",
+                    "POS Closing Shift-custom_petty_cash_out",
+                    "POS Closing Shift-custom_total_payout"
                 ),
             ]
         ],

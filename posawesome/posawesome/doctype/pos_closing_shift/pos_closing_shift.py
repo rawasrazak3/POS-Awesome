@@ -105,6 +105,14 @@ def get_pos_invoices(pos_opening_shift):
     return data
 
 @frappe.whitelist()
+def get_petty_cash_entries(pos_opening_shift):
+    return frappe.get_all(
+        "Petty Cash",
+        filters={"docstatus": 1, "posa_pos_opening_shift": pos_opening_shift},
+        fields=["name", "entry_type", "note", "amount"],
+    )
+
+@frappe.whitelist()
 def get_payments_entries(pos_opening_shift):
     return frappe.get_all(
         "Payment Entry",
@@ -251,6 +259,38 @@ def make_closing_shift_from_opening(opening_shift):
     closing_shift.set("payment_reconciliation", payments)
     closing_shift.set("taxes", taxes)
     closing_shift.set("pos_payments", pos_payments_table)
+
+    # Petty Cash Integration
+    petty_cash_entries = get_petty_cash_entries(opening_shift.get("name"))
+    petty_cash_in = []
+    petty_cash_out = []
+    total_payin = 0
+    total_payout = 0
+
+    for entry in petty_cash_entries:
+        if entry.entry_type == "Pay In":
+            petty_cash_in.append(
+                {
+                    "note": entry.note,
+                    "amount": entry.amount
+                }
+            )
+            total_payin += flt(entry.amount)
+        elif entry.entry_type == "Pay Out":
+            petty_cash_out.append(
+                {
+                    "note": entry.note,
+                    "amount": entry.amount
+                }
+            )
+            total_payout += flt(entry.amount)
+
+    closing_shift.set("petty_cash_in", petty_cash_in)
+    closing_shift.set("petty_cash_out", petty_cash_out)
+    closing_shift.custom_total_payin = total_payin
+    closing_shift.custom_total_payout = total_payout
+    closing_shift.custom_closing_amount = total_payin - total_payout
+
 
     return closing_shift
 
