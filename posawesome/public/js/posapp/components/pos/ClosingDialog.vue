@@ -629,4 +629,4 @@ export default {
 .text-red-500 {
   color: #ef4444;
 }
-</style>
+</style>  
