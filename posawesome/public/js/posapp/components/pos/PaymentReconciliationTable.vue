@@ -24,10 +24,9 @@
       <span class="text-center">{{ currencySymbol(currency) }} {{ formtCurrency(item.expected || 0) }}</span>
     </template>
     <template v-if="!hideExpectedAmount" v-slot:item.difference="{ item }">
-      <span class="text-center" v-if="item.closing != null && item.closing !== 0">
-        {{ currencySymbol(currency) }} {{ formtCurrency((item.closing || 0) - (item.expected || 0)) }}
+      <span class="text-center">
+        {{ currencySymbol(currency) }} {{ formtCurrency((item.closing != null ? item.closing : 0) - (item.expected || 0)) }}
       </span>
-      <span class="text-center" v-else>{{ currencySymbol(currency) }} {{ formtCurrency(0) }}</span>
     </template>
   </v-data-table>
 </template>
@@ -64,9 +63,7 @@ export default {
         closing: values.closing,
         difference: this.hideExpectedAmount
           ? null
-          : values.closing != null && values.closing !== 0
-            ? (values.closing || 0) - (values.expected || 0)
-            : 0,
+          : (values.closing != null ? values.closing : 0) - (values.expected || 0),
       }));
     },
   },
@@ -82,7 +79,7 @@ export default {
 .closing-table th {
   height: 64px;
   padding: 8px 24px;
-  font-size: 48px;
+  font-size: 14px; /* Adjusted from 48px, which seemed too large */
   font-weight: 600;
   background-color: #f5f5f5;
   border-bottom: 2px solid #000;
@@ -116,4 +113,5 @@ export default {
 .text-center {
   text-align: center;
 }
+
 </style>

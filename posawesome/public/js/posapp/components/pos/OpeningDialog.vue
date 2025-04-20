@@ -1,3 +1,4 @@
+```vue
 <template>
   <v-row justify="center">
     <v-dialog v-model="isOpen" persistent max-width="600px">
@@ -139,6 +140,10 @@ export default {
           });
         }
       });
+      // Emit register_pos_profile event when pos_profile changes
+      const selectedProfile = this.pos_profiles_data.find(profile => profile.name === val);
+      console.log('Emitting register_pos_profile:', { pos_profile: selectedProfile });
+      evntBus.$emit('register_pos_profile', { pos_profile: selectedProfile || { name: val, currency: 'USD' } });
     },
   },
   methods: {

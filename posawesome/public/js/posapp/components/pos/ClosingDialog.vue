@@ -169,7 +169,7 @@ export default {
         this.payments_method_data.forEach((element) => {
           if (element.parent === this.pos_profile.name) {
             Vue.set(this.paymentMethods, element.mode_of_payment, {
-              closing: 0,
+              closing: null, // Changed to null to show -expected by default
               expected: this.totalSalesByMode[element.mode_of_payment] || 0,
               currency: element.currency,
             });
