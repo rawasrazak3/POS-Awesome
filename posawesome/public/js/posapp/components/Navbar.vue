@@ -26,6 +26,7 @@
       <v-spacer></v-spacer>
 
       <!-- Pay In and Pay Out buttons -->
+      <!-- Pay In and Pay Out buttons -->
       <v-btn class="pay-btn mr-2" color="success" @click="payInDialog = true">
         Pay In
       </v-btn>
@@ -130,6 +131,7 @@
     </v-navigation-drawer>
 
     <!-- Pay In Modal -->
+    <!-- Pay In Modal -->
     <v-dialog v-model="payInDialog" max-width="400">
       <v-card>
         <v-card-title class="headline success white--text">Petty Cash Pay In</v-card-title>
@@ -153,10 +155,12 @@
           <v-spacer></v-spacer>
           <v-btn text @click="payInDialog = false">Cancel</v-btn>
           <v-btn color="success" :disabled="submitting" :loading="submitting" @click="submitPettyCashPayIn">Submit</v-btn>
+          <v-btn color="success" :disabled="submitting" :loading="submitting" @click="submitPettyCashPayIn">Submit</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
 
+    <!-- Pay Out Modal -->
     <!-- Pay Out Modal -->
     <v-dialog v-model="payOutDialog" max-width="400">
       <v-card>
@@ -180,6 +184,7 @@
         <v-card-actions>
           <v-spacer></v-spacer>
           <v-btn text @click="payOutDialog = false">Cancel</v-btn>
+          <v-btn color="error" :disabled="submitting" :loading="submitting" @click="submitPettyCashPayOut">Submit</v-btn>
           <v-btn color="error" :disabled="submitting" :loading="submitting" @click="submitPettyCashPayOut">Submit</v-btn>
         </v-card-actions>
       </v-card>
@@ -215,6 +220,7 @@ export default {
       snackColor: "",
       snackText: "",
       company: null,
+      company: null,
       company_img: "/assets/erpnext/images/erpnext-logo.svg",
       pos_profile: {},
       freeze: false,
@@ -222,6 +228,7 @@ export default {
       freezeMsg: "",
       last_invoice: "",
       logged_out: false,
+      // Pay In/Out properties
       // Pay In/Out properties
       payInDialog: false,
       payOutDialog: false,
@@ -234,6 +241,9 @@ export default {
       payInEntries: [],
       payOutEntries: [],
       submitting: false,
+      suppressFreeze: false, // New flag to suppress freeze during submissions
+      currentShiftId: null,
+      submitting: false,
       currentShiftId: null,
       rules: {
         required: (value) => !!value || "Required",
@@ -241,6 +251,13 @@ export default {
         positiveNumber: (value) => (value > 0 || "Must be greater than 0"),
       },
     };
+  },
+  computed: {
+    remainingBalance() {
+      const balance = (this.payInTotal || 0) - (this.payOutTotal || 0);
+      console.log("Navbar.vue computed remainingBalance:", balance);
+      return balance;
+    },
   },
   computed: {
     remainingBalance() {
@@ -261,6 +278,15 @@ export default {
     },
     close_shift_dialog() {
       evntBus.$emit("open_closing_dialog");
+    },
+    clearPettyCashData() {
+      this.payInEntries = [];
+      this.payOutEntries = [];
+      this.payInTotal = 0;
+      this.payOutTotal = 0;
+      this.currentShiftId = null;
+      console.log("Navbar.vue clearing Petty Cash data, emitting update with remainingBalance:", this.remainingBalance);
+      this.emitPaymentUpdate(0, 0);
     },
     clearPettyCashData() {
       this.payInEntries = [];
@@ -305,6 +331,7 @@ export default {
           color: "error",
         });
         this.freeze = false;
+        console.error("Navbar.vue logout error:", error);
         console.error("Navbar.vue logout error:", error);
       }
     },
@@ -428,10 +455,137 @@ export default {
         this.clearPettyCashData();
       }
     },
+    async getCurrentShiftId() {
+      try {
+        if (!this.pos_profile.name) {
+          throw new Error("POS Profile is not set");
+        }
+        const response = await frappe.call({
+          method: "frappe.client.get_list",
+          args: {
+            doctype: "POS Opening Shift",
+            filters: {
+              pos_profile: this.pos_profile.name,
+              status: "Open",
+              docstatus: 1,
+            },
+            fields: ["name"],
+            order_by: "creation desc",
+            limit: 1,
+          },
+        });
+        console.log("Navbar.vue getCurrentShiftId response:", JSON.stringify(response, null, 2));
+        const shiftId = response.message && response.message.length > 0 ? response.message[0].name : null;
+        console.log("Navbar.vue getCurrentShiftId result:", shiftId);
+        return shiftId;
+      } catch (error) {
+        console.error("Navbar.vue error fetching current shift ID:", error);
+        this.show_mesage({
+          text: "Failed to fetch POS shift",
+          color: "error",
+        });
+        return null;
+      }
+    },
+    async fetchPettyCashData() {
+      try {
+        const shiftId = await this.getCurrentShiftId();
+        if (!shiftId) {
+          console.log("Navbar.vue no open shift found, clearing Petty Cash data");
+          this.clearPettyCashData();
+          return;
+        }
+        this.currentShiftId = shiftId;
+
+        const response = await frappe.call({
+          method: "frappe.client.get_list",
+          args: {
+            doctype: "Petty Cash",
+            filters: {
+              pos_profile: this.pos_profile.name,
+              posa_pos_opening_shift: shiftId,
+              docstatus: 1,
+            },
+            fields: ["entry_type", "amount", "note"],
+            order_by: "creation asc",
+          },
+        });
+        console.log("Navbar.vue fetchPettyCashData response:", JSON.stringify(response, null, 2));
+
+        const payInEntries = [];
+        const payOutEntries = [];
+        let payInTotal = 0;
+        let payOutTotal = 0;
+
+        (response.message || []).forEach((entry) => {
+          const amount = parseFloat(entry.amount) || 0;
+          if (entry.entry_type === "Pay In") {
+            payInEntries.push({ amount, note: entry.note || "" });
+            payInTotal += amount;
+          } else if (entry.entry_type === "Pay Out") {
+            payOutEntries.push({ amount, note: entry.note || "" });
+            payOutTotal += amount;
+          }
+        });
+
+        this.payInEntries = payInEntries;
+        this.payOutEntries = payOutEntries;
+        this.payInTotal = payInTotal;
+        this.payOutTotal = payOutTotal;
+
+        console.log("Navbar.vue fetchPettyCashData results:", {
+          payInTotal,
+          payOutTotal,
+          remainingBalance: this.remainingBalance,
+          payInEntries: payInEntries.length,
+          payOutEntries: payOutEntries.length,
+        });
+        this.emitPaymentUpdate(0, 0);
+      } catch (error) {
+        console.error("Navbar.vue error fetching Petty Cash data:", error);
+        this.show_mesage({
+          text: "Failed to fetch Petty Cash data",
+          color: "error",
+        });
+        this.clearPettyCashData();
+      }
+    },
     async submitPettyCashPayIn() {
       if (!this.validatePayment(this.payInAmount, this.payInNote)) return;
 
       const amount = parseFloat(this.payInAmount);
+      this.submitting = true;
+      this.suppressFreeze = true; // Suppress freeze events during submission
+
+      try {
+        if (!this.company) {
+          throw new Error("Company is not set");
+        }
+        if (!this.pos_profile.name) {
+          throw new Error("POS Profile is not set");
+        }
+
+        const shiftId = await this.getCurrentShiftId();
+        if (!shiftId) {
+          throw new Error("No active POS Opening Shift found. Please open a shift first.");
+        }
+        this.currentShiftId = shiftId;
+
+        const args = {
+          date: frappe.datetime.now_date(),
+          entry_type: "Pay In",
+          pos_profile: this.pos_profile.name,
+          amount: amount,
+          note: this.payInNote,
+          posa_pos_opening_shift: shiftId,
+          company: this.company,
+        };
+
+        console.log("Navbar.vue calling create_petty_cash for Pay In:", JSON.stringify(args, null, 2));
+
+        const response = await frappe.call({
+          method: "posawesome.posawesome.api.petty_cash.create_petty_cash",
+          args: args,
       this.submitting = true;
 
       try {
@@ -471,6 +625,9 @@ export default {
 
         console.log("Navbar.vue Petty Cash Pay In response:", JSON.stringify(response, null, 2));
 
+        console.log("Navbar.vue Petty Cash Pay In response:", JSON.stringify(response, null, 2));
+
+        if (response.message && response.message.status === "success") {
         if (response.message && response.message.status === "success") {
           this.show_mesage({
             text: "Petty Cash Pay In created and submitted",
@@ -482,8 +639,10 @@ export default {
             note: this.payInNote,
           });
           console.log("Navbar.vue after Pay In, remainingBalance:", this.remainingBalance);
+          console.log("Navbar.vue after Pay In, remainingBalance:", this.remainingBalance);
           this.emitPaymentUpdate(amount, 0);
         } else {
+          throw new Error(response.message?.message || "Failed to process Petty Cash Pay In");
           throw new Error(response.message?.message || "Failed to process Petty Cash Pay In");
         }
       } catch (error) {
@@ -496,7 +655,17 @@ export default {
             errorMessage = error.responseText || "Invalid server response";
           }
         }
+        let errorMessage = error.message || "Unknown error";
+        if (error.responseText) {
+          try {
+            const responseData = JSON.parse(error.responseText);
+            errorMessage = responseData.exc || responseData.message || "Server error";
+          } catch (e) {
+            errorMessage = error.responseText || "Invalid server response";
+          }
+        }
         this.show_mesage({
+          text: `Petty Cash Pay In Error: ${errorMessage}`,
           text: `Petty Cash Pay In Error: ${errorMessage}`,
           color: "error",
         });
@@ -507,7 +676,16 @@ export default {
           statusText: error.statusText,
           stack: error.stack,
         });
+        console.error("Navbar.vue Petty Cash Pay In error:", {
+          message: error.message,
+          response: error.responseText,
+          status: error.status,
+          statusText: error.statusText,
+          stack: error.stack,
+        });
       } finally {
+        this.submitting = false;
+        this.suppressFreeze = false; // Re-enable freeze events
         this.submitting = false;
         this.freeze = false;
         this.resetPaymentForm("payIn");
@@ -529,6 +707,38 @@ export default {
 
       this.submitting = true;
 
+      this.submitting = true;
+      this.suppressFreeze = true; // Suppress freeze events during submission
+
+      try {
+        if (!this.company) {
+          throw new Error("Company is not set");
+        }
+        if (!this.pos_profile.name) {
+          throw new Error("POS Profile is not set");
+        }
+
+        const shiftId = await this.getCurrentShiftId();
+        if (!shiftId) {
+          throw new Error("No active POS Opening Shift found. Please open a shift first.");
+        }
+        this.currentShiftId = shiftId;
+
+        const args = {
+          date: frappe.datetime.now_date(),
+          entry_type: "Pay Out",
+          pos_profile: this.pos_profile.name,
+          amount: amount,
+          note: this.payOutNote,
+          posa_pos_opening_shift: shiftId,
+          company: this.company,
+        };
+
+        console.log("Navbar.vue calling create_petty_cash for Pay Out:", JSON.stringify(args, null, 2));
+
+        const response = await frappe.call({
+          method: "posawesome.posawesome.api.petty_cash.create_petty_cash",
+          args: args,
       try {
         this.freeze = true;
         this.freezeTitle = "Processing Petty Cash Pay Out";
@@ -566,6 +776,9 @@ export default {
 
         console.log("Navbar.vue Petty Cash Pay Out response:", JSON.stringify(response, null, 2));
 
+        console.log("Navbar.vue Petty Cash Pay Out response:", JSON.stringify(response, null, 2));
+
+        if (response.message && response.message.status === "success") {
         if (response.message && response.message.status === "success") {
           this.show_mesage({
             text: "Petty Cash Pay Out created and submitted",
@@ -577,8 +790,10 @@ export default {
             note: this.payOutNote,
           });
           console.log("Navbar.vue after Pay Out, remainingBalance:", this.remainingBalance);
+          console.log("Navbar.vue after Pay Out, remainingBalance:", this.remainingBalance);
           this.emitPaymentUpdate(0, amount);
         } else {
+          throw new Error(response.message?.message || "Failed to process Petty Cash Pay Out");
           throw new Error(response.message?.message || "Failed to process Petty Cash Pay Out");
         }
       } catch (error) {
@@ -591,7 +806,17 @@ export default {
             errorMessage = error.responseText || "Invalid server response";
           }
         }
+        let errorMessage = error.message || "Unknown error";
+        if (error.responseText) {
+          try {
+            const responseData = JSON.parse(error.responseText);
+            errorMessage = responseData.exc || responseData.message || "Server error";
+          } catch (e) {
+            errorMessage = error.responseText || "Invalid server response";
+          }
+        }
         this.show_mesage({
+          text: `Petty Cash Pay Out Error: ${errorMessage}`,
           text: `Petty Cash Pay Out Error: ${errorMessage}`,
           color: "error",
         });
@@ -602,7 +827,16 @@ export default {
           statusText: error.statusText,
           stack: error.stack,
         });
+        console.error("Navbar.vue Petty Cash Pay Out error:", {
+          message: error.message,
+          response: error.responseText,
+          status: error.status,
+          statusText: error.statusText,
+          stack: error.stack,
+        });
       } finally {
+        this.submitting = false;
+        this.suppressFreeze = false; // Re-enable freeze events
         this.submitting = false;
         this.freeze = false;
         this.resetPaymentForm("payOut");
@@ -627,8 +861,23 @@ export default {
     },
     emitPaymentUpdate(payInAmount, payOutAmount) {
       const eventData = {
+      const eventData = {
         payInAmount,
         payOutAmount,
+        payInEntries: this.payInEntries || [],
+        payOutEntries: this.payOutEntries || [],
+        payInTotal: parseFloat(this.payInTotal || 0),
+        payOutTotal: parseFloat(this.payOutTotal || 0),
+        remainingBalance: parseFloat(this.remainingBalance || 0),
+      };
+      console.log("Navbar.vue emitting update-piti-totals for POSClosingDialog:", {
+        remainingBalance: eventData.remainingBalance,
+        payInTotal: eventData.payInTotal,
+        payOutTotal: eventData.payOutTotal,
+        payInEntries: eventData.payInEntries.length,
+        payOutEntries: eventData.payOutEntries.length,
+      }, JSON.stringify(eventData, null, 2));
+      evntBus.$emit("update-piti-totals", eventData);
         payInEntries: this.payInEntries || [],
         payOutEntries: this.payOutEntries || [],
         payInTotal: parseFloat(this.payInTotal || 0),
@@ -663,6 +912,14 @@ export default {
         minimumFractionDigits: 2,
       }).format(amount || 0);
     },
+    formatCurrency(amount) {
+      const currency = this.pos_profile.currency || "USD";
+      return new Intl.NumberFormat("en-US", {
+        style: "currency",
+        currency: currency,
+        minimumFractionDigits: 2,
+      }).format(amount || 0);
+    },
   },
   created() {
     this.$nextTick(() => {
@@ -670,8 +927,12 @@ export default {
       evntBus.$on("set_company", (data) => {
         console.log("Navbar.vue set company:", data);
         this.company = data.name || null;
+        console.log("Navbar.vue set company:", data);
+        this.company = data.name || null;
         this.company_img = data.company_logo || this.company_img;
       });
+      evntBus.$on("register_pos_profile", async (data) => {
+        console.log("Navbar.vue register POS profile:", data);
       evntBus.$on("register_pos_profile", async (data) => {
         console.log("Navbar.vue register POS profile:", data);
         this.pos_profile = data.pos_profile || {};
@@ -683,14 +944,28 @@ export default {
       evntBus.$on("set_last_invoice", (data) => {
         this.last_invoice = data;
         console.log("Navbar.vue set last invoice:", data);
+        await this.fetchPettyCashData();
+      });
+      evntBus.$on("set_last_invoice", (data) => {
+        this.last_invoice = data;
+        console.log("Navbar.vue set last invoice:", data);
       });
       evntBus.$on("freeze", (data) => {
+        if (this.suppressFreeze) {
+          console.log("Navbar.vue freeze event suppressed during submission");
+          return;
+        }
         this.freeze = true;
         this.freezeTitle = data.title;
         this.freezeMsg = data.msg;
         console.log("Navbar.vue freeze:", data);
+        console.log("Navbar.vue freeze:", data);
       });
       evntBus.$on("unfreeze", () => {
+        if (this.suppressFreeze) {
+          console.log("Navbar.vue unfreeze event suppressed during submission");
+          return;
+        }
         this.freeze = false;
         this.freezeTitle = "";
         this.freezeMsg = "";
@@ -699,7 +974,16 @@ export default {
       evntBus.$on("shift_closed", () => {
         console.log("Navbar.vue shift_closed event received, clearing Petty Cash data");
         this.clearPettyCashData();
+        console.log("Navbar.vue unfreeze");
       });
+      evntBus.$on("shift_closed", () => {
+        console.log("Navbar.vue shift_closed event received, clearing Petty Cash data");
+        this.clearPettyCashData();
+      });
+      if (this.pos_profile.name) {
+        console.log("Navbar.vue initial fetchPettyCashData due to pos_profile.name:", this.pos_profile.name);
+        this.fetchPettyCashData();
+      }
       if (this.pos_profile.name) {
         console.log("Navbar.vue initial fetchPettyCashData due to pos_profile.name:", this.pos_profile.name);
         this.fetchPettyCashData();
@@ -713,6 +997,8 @@ export default {
     evntBus.$off("set_last_invoice");
     evntBus.$off("freeze");
     evntBus.$off("unfreeze");
+    evntBus.$off("shift_closed");
+    console.log("Navbar.vue beforeDestroy: Unregistered event listeners");
     evntBus.$off("shift_closed");
     console.log("Navbar.vue beforeDestroy: Unregistered event listeners");
   },
