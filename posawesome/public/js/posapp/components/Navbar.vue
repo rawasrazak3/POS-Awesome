@@ -234,6 +234,7 @@ export default {
       payInEntries: [],
       payOutEntries: [],
       submitting: false,
+      suppressFreeze: false, // New flag to suppress freeze during submissions
       currentShiftId: null,
       rules: {
         required: (value) => !!value || "Required",
@@ -433,12 +434,9 @@ export default {
 
       const amount = parseFloat(this.payInAmount);
       this.submitting = true;
+      this.suppressFreeze = true; // Suppress freeze events during submission
 
       try {
-        this.freeze = true;
-        this.freezeTitle = "Processing Petty Cash Pay In";
-        this.freezeMsg = "Please wait...";
-
         if (!this.company) {
           throw new Error("Company is not set");
         }
@@ -509,7 +507,7 @@ export default {
         });
       } finally {
         this.submitting = false;
-        this.freeze = false;
+        this.suppressFreeze = false; // Re-enable freeze events
         this.resetPaymentForm("payIn");
       }
     },
@@ -528,12 +526,9 @@ export default {
       }
 
       this.submitting = true;
+      this.suppressFreeze = true; // Suppress freeze events during submission
 
       try {
-        this.freeze = true;
-        this.freezeTitle = "Processing Petty Cash Pay Out";
-        this.freezeMsg = "Please wait...";
-
         if (!this.company) {
           throw new Error("Company is not set");
         }
@@ -604,7 +599,7 @@ export default {
         });
       } finally {
         this.submitting = false;
-        this.freeze = false;
+        this.suppressFreeze = false; // Re-enable freeze events
         this.resetPaymentForm("payOut");
       }
     },
@@ -685,12 +680,20 @@ export default {
         console.log("Navbar.vue set last invoice:", data);
       });
       evntBus.$on("freeze", (data) => {
+        if (this.suppressFreeze) {
+          console.log("Navbar.vue freeze event suppressed during submission");
+          return;
+        }
         this.freeze = true;
         this.freezeTitle = data.title;
         this.freezeMsg = data.msg;
         console.log("Navbar.vue freeze:", data);
       });
       evntBus.$on("unfreeze", () => {
+        if (this.suppressFreeze) {
+          console.log("Navbar.vue unfreeze event suppressed during submission");
+          return;
+        }
         this.freeze = false;
         this.freezeTitle = "";
         this.freezeMsg = "";
