@@ -136,9 +136,15 @@ export default {
       }, 0);
     },
     remainingBalanceDisplay() {
-      const balance = this.payData.remainingBalance ?? 0;
-      console.log("DailyReport.vue computed remainingBalanceDisplay:", balance);
-      return balance;
+      // Fallback calculation if payData.remainingBalance is not provided or incorrect
+      const balanceFromProp = this.payData.remainingBalance ?? 0;
+      const calculatedBalance = (this.payData.payInTotal || 0) - (this.payData.payOutTotal || 0);
+      console.log("DailyReport.vue computed remainingBalanceDisplay:", {
+        fromProp: balanceFromProp,
+        calculated: calculatedBalance,
+        using: balanceFromProp !== 0 ? balanceFromProp : calculatedBalance,
+      });
+      return balanceFromProp !== 0 ? balanceFromProp : calculatedBalance;
     },
   },
   methods: {
@@ -202,11 +208,19 @@ export default {
     },
   },
   created() {
-    console.log("DailyReport.vue received payData:", JSON.stringify(this.payData, null, 2));
+    console.log("DailyReport.vue received payData on creation:", JSON.stringify(this.payData, null, 2));
     this.$nextTick(() => {
       const remainingRow = document.querySelector('[data-test="remaining-row"]');
       console.log("DailyReport.vue remaining row in DOM:", remainingRow, "Inner HTML:", remainingRow?.innerHTML);
     });
+  },
+  watch: {
+    'payData': {
+      handler(newPayData) {
+        console.log("DailyReport.vue payData changed:", JSON.stringify(newPayData, null, 2));
+      },
+      deep: true,
+    },
   },
 };
 </script>
