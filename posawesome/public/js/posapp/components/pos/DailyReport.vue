@@ -65,8 +65,8 @@
         <tr>
           <th class="text-left">Payment Type</th>
           <th class="text-right">Closing</th>
-          <th class="text-right">Expected</th>
           <th class="text-right">Diff</th>
+          <th class="text-right">Expected</th>
         </tr>
       </thead>
       <tbody>
@@ -87,11 +87,11 @@
       </tbody>
     </v-simple-table>
 
-    <div class="signature-section mt-4">
+    <div class="signature-section">
       <div class="signature-container">
         <div class="signature-left">
-          <div class="signature-line" />
-          <div>Cashier's Signature</div>
+          <div class="signature-line"></div>
+          <div>Cashier's Name & Signature</div>
         </div>
       </div>
     </div>
@@ -269,7 +269,7 @@ export default {
                 }
                 th, td {
                   padding: 2px;
-                  border: 1px solid #000;
+                  border: 1.5px solid #000;
                   font-size: 10px;
                   word-wrap: break-word;
                 }
@@ -289,10 +289,11 @@ export default {
                 .total-row {
                   font-weight: bold;
                   background-color: #f9f9f9;
-                  border: 1px solid #000;
+                  border: 1.5px solid #000;
                 }
                 .remaining-row {
                   font-weight: bold;
+                  border: 1.5px solid #000;
                 }
                 .pay-table td:first-child {
                   width: 70%;
@@ -309,7 +310,7 @@ export default {
                   width: 16.67%;
                 }
                 .signature-section {
-                  margin-top: 8px;
+                  margin-top: 16px;
                 }
                 .signature-container {
                   display: flex;
@@ -321,8 +322,9 @@ export default {
                   width: 100%;
                 }
                 .signature-line {
-                  border-top: 1px solid #000;
-                  width: 100%;
+                  border-top: none;
+                  height: 1px;
+                  background-color: #000;
                   margin: 0 auto 4px;
                 }
                 @media print {
@@ -334,6 +336,10 @@ export default {
                   .v-sheet, .v-table {
                     box-shadow: none !important;
                     border: none !important;
+                  }
+                  .v-table__wrapper table th,
+                  .v-table__wrapper table td {
+                    border: 1.5px solid #000 !important;
                   }
                   .v-table__wrapper > table {
                     border-spacing: 0;
@@ -478,7 +484,7 @@ table {
 
 th, td {
   padding: 2px;
-  border: 1px solid #000;
+  border: 1.5px solid #000;
   font-size: 10px;
   word-wrap: break-word;
 }
@@ -509,15 +515,16 @@ th {
 .total-row {
   font-weight: bold;
   background-color: #f9f9f9;
-  border: 1px solid #000;
+  border: 1.5px solid #000;
 }
 
 .remaining-row {
   font-weight: bold;
+  border: 1.5px solid #000;
 }
 
 .signature-section {
-  margin-top: 8px;
+  margin-top: 16px;
 }
 
 .signature-container {
@@ -532,8 +539,9 @@ th {
 }
 
 .signature-line {
-  border-top: 1px solid #000;
-  width: 100%;
+  border-top: none;
+  height: 1px;
+  background-color: #000;
   margin: 0 auto 4px;
 }
 </style>
