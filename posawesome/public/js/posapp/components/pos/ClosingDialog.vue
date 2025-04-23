@@ -60,12 +60,14 @@
     <daily-report
       ref="reportContent"
       :pos-profile="pos_profile"
+      :user-name="userName"
       :pay-data="{ payInTotal, payOutTotal, payInEntries, payOutEntries }"
       :items-sold="itemsSold"
       :payment-methods="paymentMethods"
       :current-date="currentDate"
       :current-time="currentTime"
       v-show="false"
+      class="daily-report-hidden"
     />
   </v-row>
 </template>
@@ -87,6 +89,7 @@ export default {
     payments_method_data: [],
     currentShift: null,
     user: frappe.session.user,
+    userName: frappe.session.user_fullname || "Unknown User",
     itemsSold: [],
     payInTotal: 0,
     payOutTotal: 0,
@@ -277,7 +280,8 @@ export default {
       }
       this.isPrinting = true;
       try {
-        console.log("Starting printDailyReport");
+        console.log("Starting printDailyReport, userName:", this.userName);
+        console.log("ReportContent ref:", this.$refs.reportContent);
         await this.$nextTick();
         if (!this.$refs.reportContent?.getPrintContent) {
           throw new Error(__("Daily Report component or getPrintContent method is not available"));
@@ -286,6 +290,7 @@ export default {
         if (!printContent) {
           throw new Error(__("No content generated for daily report"));
         }
+        console.log("Report content generated");
         const printWindow = window.open("", "_blank");
         if (!printWindow) {
           throw new Error(__("Unable to open print window. Please allow pop-ups."));
@@ -312,12 +317,12 @@ export default {
                   printWindow.close();
                 }
                 resolve();
-              },); // Close after 3s if onafterprint doesn't fire
-            },); // Increased delay for rendering
+              }, 300); // Close after 3s if onafterprint doesn't fire
+            }, 100); // Increased delay for rendering
           };
           // Handle window load failure
           setTimeout(() => {
-            if (!printWindow.document.readyState === "complete") {
+            if (printWindow.document.readyState !== "complete") {
               console.error("Print window failed to load");
               printWindow.close();
               reject(new Error("Print window failed to load"));
@@ -444,4 +449,5 @@ export default {
 .v-card-actions { padding: 1rem; }
 .v-btn { min-width: 4rem; border-radius: 0.5rem; font-size: 1rem; font-weight: 500; }
 .text-red-500 { color: #ef4444; }
+.daily-report-hidden { display: none; }
 </style>

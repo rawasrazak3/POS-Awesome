@@ -8,6 +8,7 @@
         <span><strong>Date:</strong> {{ currentDate }}</span>
         <span class="time-right"><strong>Time:</strong> {{ currentTime }}</span>
       </div>
+      <div class="user-name-container text-left">{{ userName }}</div>
     </div>
 
     <div class="section-title">Pay Transactions</div>
@@ -86,6 +87,11 @@ export default {
       type: Object,
       required: true,
       validator: (prop) => typeof prop.name === 'string' && typeof prop.currency === 'string',
+    },
+    userName: {
+      type: String,
+      required: true,
+      default: 'Unknown User',
     },
     payData: {
       type: Object,
@@ -189,9 +195,10 @@ export default {
                 @page { size: var(--page-width) auto; margin: var(--margin); }
                 body { font-family: Arial, sans-serif; margin: 0; padding: var(--margin); width: var(--page-width); font-size: var(--font-size); line-height: 1.2; }
                 h1 { font-size: 16px; font-weight: bold; margin: 0 0 2px; text-align: center; }
-                .profile-name, .subtitle { font-size: var(--font-size); }
-                .profile-name { margin-bottom: 2px; }
-                .subtitle { color: #555; margin-bottom: 4px; }
+                .profile-name, .user-name-container, .subtitle { font-size: var(--font-size); }
+                .profile-name { margin-bottom: 2px; text-align: center; }
+                .user-name-container { margin-bottom: 4px; text-align: left; }
+                .subtitle { color: #555; margin-bottom: 4px; text-align: center; }
                 .date-time { display: flex; justify-content: space-between; font-size: var(--font-size); margin-bottom: 4px; }
                 .section-title { font-size: 12px; font-weight: bold; margin: 4px 0 2px; padding-bottom: 2px; border-bottom: 1px solid var(--border-color); }
                 table { width: 100%; border-collapse: collapse; margin-bottom: 4px; }
@@ -219,7 +226,7 @@ export default {
             <body>${this.$el.innerHTML}</body>
           </html>
         `;
-        console.log("Generated print content");
+        console.log("Generated print content with userName:", this.userName);
         return content;
       } catch (error) {
         console.error('getPrintContent error:', error);
@@ -231,7 +238,11 @@ export default {
     this.$nextTick(() => {
       const remainingRow = document.querySelector('[data-test="remaining-row"]');
       console.log('Remaining row:', remainingRow?.innerHTML);
+      console.log('User name:', this.userName, 'positioned below date');
     });
+  },
+  mounted() {
+    console.log('DailyReport component mounted');
   },
 };
 </script>
@@ -254,9 +265,10 @@ export default {
   line-height: 1.2;
 }
 h1 { font-size: 16px; font-weight: bold; margin: 0 0 2px; }
-.profile-name, .subtitle { font-size: var(--font-size); }
-.profile-name { margin-bottom: 2px; }
-.subtitle { color: #555; margin-bottom: 4px; }
+.profile-name, .user-name-container, .subtitle { font-size: var(--font-size); }
+.profile-name { margin-bottom: 2px; text-align: center; }
+.user-name-container { margin-bottom: 4px; text-align: left;font-weight: 600;}
+.subtitle { color: #555; margin-bottom: 4px; text-align: center; }
 .date-time { display: flex; justify-content: space-between; margin-bottom: 4px; }
 .section-title { font-size: 12px; font-weight: bold; margin: 4px 0 2px; padding-bottom: 2px; border-bottom: 1px solid var(--border-color); }
 table { width: 100%; border-collapse: collapse; margin-bottom: 4px; }
