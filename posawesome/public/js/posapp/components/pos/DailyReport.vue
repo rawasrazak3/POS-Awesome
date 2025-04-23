@@ -16,7 +16,7 @@
       <tbody>
         <tr class="total-row">
           <td><strong>Total Pay In</strong></td>
-          <td class="text-right"><strong>{{ currencySymbol(posProfile.currency) }} {{ formatCurrency(payData.payInTotal || 0) }}</strong></td>
+          <td class="text-right"><strong>{{ currencySymbol(posProfile.currency) }} {{ formatCurrency(payInTotalDisplay) }}</strong></td>
         </tr>
         <tr v-for="(entry, index) in payData.payInEntries" :key="'payin-' + index">
           <td class="text-left">{{ entry.note }}</td>
@@ -24,7 +24,7 @@
         </tr>
         <tr class="total-row">
           <td><strong>Total Pay Out</strong></td>
-          <td class="text-right"><strong>{{ currencySymbol(posProfile.currency) }} {{ formatCurrency(payData.payOutTotal || 0) }}</strong></td>
+          <td class="text-right"><strong>{{ currencySymbol(posProfile.currency) }} {{ formatCurrency(payOutTotalDisplay) }}</strong></td>
         </tr>
         <tr v-for="(entry, index) in payData.payOutEntries" :key="'payout-' + index">
           <td class="text-left">{{ entry.note }}</td>
@@ -103,9 +103,13 @@ export default {
   name: "DailyReport",
   mixins: [format],
   props: {
-    posProfile: { type: Object, required: true },
-    payData: { 
-      type: Object, 
+    posProfile: {
+      type: Object,
+      required: true,
+      validator: (prop) => typeof prop.name === "string" && typeof prop.currency === "string",
+    },
+    payData: {
+      type: Object,
       required: true,
       default: () => ({
         payInEntries: [],
@@ -114,15 +118,73 @@ export default {
         payOutTotal: 0,
         remainingBalance: 0,
       }),
+      validator: (payData) => {
+        return (
+          Array.isArray(payData.payInEntries) &&
+          Array.isArray(payData.payOutEntries) &&
+          typeof payData.payInTotal === "number" &&
+          typeof payData.payOutTotal === "number" &&
+          typeof payData.remainingBalance === "number"
+        );
+      },
     },
-    itemsSold: { type: Array, required: true },
-    paymentMethods: { type: Object, required: true },
-    currentDate: { type: String, required: true },
-    currentTime: { type: String, required: true },
+    itemsSold: {
+      type: Array,
+      required: true,
+      default: () => [],
+    },
+    paymentMethods: {
+      type: Object,
+      required: true,
+      default: () => ({}),
+    },
+    currentDate: {
+      type: String,
+      required: true,
+    },
+    currentTime: {
+      type: String,
+      required: true,
+    },
   },
   computed: {
+    // Compute totals from entries for reliability
+    computedPayInTotal() {
+      return this.payData.payInEntries.reduce((sum, entry) => sum + (parseFloat(entry.amount) || 0), 0);
+    },
+    computedPayOutTotal() {
+      return this.payData.payOutEntries.reduce((sum, entry) => sum + (parseFloat(entry.amount) || 0), 0);
+    },
+    computedRemainingBalance() {
+      return this.computedPayInTotal - this.computedPayOutTotal;
+    },
+    // Display values with prop fallback and discrepancy logging
+    payInTotalDisplay() {
+      const propTotal = parseFloat(this.payData.payInTotal) || 0;
+      const computedTotal = this.computedPayInTotal;
+      if (Math.abs(propTotal - computedTotal) > 0.01) {
+        console.warn("payInTotal discrepancy:", { prop: propTotal, computed: computedTotal });
+      }
+      return computedTotal;
+    },
+    payOutTotalDisplay() {
+      const propTotal = parseFloat(this.payData.payOutTotal) || 0;
+      const computedTotal = this.computedPayOutTotal;
+      if (Math.abs(propTotal - computedTotal) > 0.01) {
+        console.warn("payOutTotal discrepancy:", { prop: propTotal, computed: computedTotal });
+      }
+      return computedTotal;
+    },
+    remainingBalanceDisplay() {
+      const propBalance = parseFloat(this.payData.remainingBalance) || 0;
+      const computedBalance = this.computedRemainingBalance;
+      if (Math.abs(propBalance - computedBalance) > 0.01) {
+        console.warn("remainingBalance discrepancy:", { prop: propBalance, computed: computedBalance });
+      }
+      return computedBalance;
+    },
     totalItemsSold() {
-      return this.itemsSold.reduce((sum, item) => sum + (item.amount || 0), 0);
+      return this.itemsSold.reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0);
     },
     totalClosing() {
       return Object.values(this.paymentMethods).reduce((sum, method) => sum + (parseFloat(method.closing) || 0), 0);
@@ -135,19 +197,20 @@ export default {
         return sum + ((method.closing != null ? parseFloat(method.closing) : 0) - (parseFloat(method.expected) || 0));
       }, 0);
     },
-    remainingBalanceDisplay() {
-      // Fallback calculation if payData.remainingBalance is not provided or incorrect
-      const balanceFromProp = this.payData.remainingBalance ?? 0;
-      const calculatedBalance = (this.payData.payInTotal || 0) - (this.payData.payOutTotal || 0);
-      console.log("DailyReport.vue computed remainingBalanceDisplay:", {
-        fromProp: balanceFromProp,
-        calculated: calculatedBalance,
-        using: balanceFromProp !== 0 ? balanceFromProp : calculatedBalance,
-      });
-      return balanceFromProp !== 0 ? balanceFromProp : calculatedBalance;
-    },
   },
   methods: {
+    currencySymbol(currency) {
+      try {
+        const formatter = new Intl.NumberFormat("en-US", {
+          style: "currency",
+          currency: currency || "USD",
+        });
+        return formatter.format(0).replace(/\d+([,.]\d+)?/, "").trim();
+      } catch (error) {
+        console.error("currencySymbol error:", error, { currency });
+        return currency || "USD";
+      }
+    },
     formatCurrency(amount) {
       try {
         const currency = this.posProfile.currency || "USD";
@@ -159,13 +222,13 @@ export default {
         }).format(amount ?? 0);
         return formatted.replace(/^\D+/, "");
       } catch (error) {
-        console.error("DailyReport.vue formatCurrency error:", error, { amount });
+        console.error("formatCurrency error:", error, { amount });
         return Number(amount ?? 0).toFixed(2);
       }
     },
     async getPrintContent() {
       try {
-        console.log("DailyReport.vue getPrintContent payData:", JSON.stringify(this.payData, null, 2));
+        console.log("getPrintContent payData:", JSON.stringify(this.payData, null, 2));
         const content = `
           <html>
             <head>
@@ -196,28 +259,76 @@ export default {
             </body>
           </html>
         `;
-        console.log("DailyReport.vue getPrintContent length:", content.length);
+        console.log("getPrintContent length:", content.length);
         return content;
       } catch (error) {
-        console.error("DailyReport.vue getPrintContent error:", {
+        console.error("getPrintContent error:", {
           message: error.message,
           stack: error.stack,
         });
         throw new Error(__("Failed to generate print content: ") + (error.message || __("Unknown error")));
       }
     },
+    // Methods to add/remove entries (optional, if managed in DailyReport)
+    addPayIn(note, amount) {
+      const newPayData = {
+        ...this.payData,
+        payInEntries: [...this.payData.payInEntries, { note, amount: parseFloat(amount) || 0 }],
+      };
+      this.$emit("update:payData", newPayData);
+    },
+    removePayIn(index) {
+      const newPayData = {
+        ...this.payData,
+        payInEntries: this.payData.payInEntries.filter((_, i) => i !== index),
+      };
+      this.$emit("update:payData", newPayData);
+    },
+    addPayOut(note, amount) {
+      const newPayData = {
+        ...this.payData,
+        payOutEntries: [...this.payData.payOutEntries, { note, amount: parseFloat(amount) || 0 }],
+      };
+      this.$emit("update:payData", newPayData);
+    },
+    removePayOut(index) {
+      const newPayData = {
+        ...this.payData,
+        payOutEntries: this.payData.payOutEntries.filter((_, i) => i !== index),
+      };
+      this.$emit("update:payData", newPayData);
+    },
+    updateTotals() {
+      const newPayData = {
+        ...this.payData,
+        payInTotal: this.computedPayInTotal,
+        payOutTotal: this.computedPayOutTotal,
+        remainingBalance: this.computedRemainingBalance,
+      };
+      this.$emit("update:payData", newPayData);
+    },
   },
   created() {
-    console.log("DailyReport.vue received payData on creation:", JSON.stringify(this.payData, null, 2));
+    console.log("DailyReport created, payData:", JSON.stringify(this.payData, null, 2));
     this.$nextTick(() => {
       const remainingRow = document.querySelector('[data-test="remaining-row"]');
-      console.log("DailyReport.vue remaining row in DOM:", remainingRow, "Inner HTML:", remainingRow?.innerHTML);
+      console.log("Remaining row in DOM:", remainingRow, "Inner HTML:", remainingRow?.innerHTML);
+      // Update totals on initialization
+      this.updateTotals();
     });
   },
   watch: {
-    'payData': {
-      handler(newPayData) {
-        console.log("DailyReport.vue payData changed:", JSON.stringify(newPayData, null, 2));
+    "payData.payInEntries": {
+      handler() {
+        console.log("payInEntries changed, updating totals");
+        this.updateTotals();
+      },
+      deep: true,
+    },
+    "payData.payOutEntries": {
+      handler() {
+        console.log("payOutEntries changed, updating totals");
+        this.updateTotals();
       },
       deep: true,
     },
