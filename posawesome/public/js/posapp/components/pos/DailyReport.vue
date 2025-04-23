@@ -310,7 +310,7 @@ export default {
                   width: 16.67%;
                 }
                 .signature-section {
-                  margin-top: 16px;
+                  margin-top: 24px;
                 }
                 .signature-container {
                   display: flex;
@@ -322,10 +322,9 @@ export default {
                   width: 100%;
                 }
                 .signature-line {
-                  border-top: none;
-                  height: 1px;
-                  background-color: #000;
+                  border-top: 2px solid #000;
                   margin: 0 auto 4px;
+                  width: 100%;
                 }
                 @media print {
                   body {
@@ -508,7 +507,7 @@ th {
 }
 
 .settlement-table th:not(:first-child),
-.settlement-table td:not(:first-child) {
+.settlement-table td:not(:first-child ){
   width: 16.67%;
 }
 
@@ -523,8 +522,8 @@ th {
   border: 1.5px solid #000;
 }
 
-.signature-section {
-  margin-top: 16px;
+.signature تجربه-section {
+  margin-top: 24px;
 }
 
 .signature-container {
@@ -539,9 +538,8 @@ th {
 }
 
 .signature-line {
-  border-top: none;
-  height: 1px;
-  background-color: #000;
+  border-top: 2px solid #000;
   margin: 0 auto 4px;
+  width: 100%;
 }
 </style>
