@@ -219,6 +219,7 @@ export default {
             <body>${this.$el.innerHTML}</body>
           </html>
         `;
+        console.log("Generated print content");
         return content;
       } catch (error) {
         console.error('getPrintContent error:', error);

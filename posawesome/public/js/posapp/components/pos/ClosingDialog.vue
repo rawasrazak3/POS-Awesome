@@ -95,7 +95,7 @@ export default {
     totalSalesByMode: {},
     loading: false,
     errorMessage: null,
-    isPrinting: false, // Flag to prevent multiple print attempts
+    isPrinting: false,
   }),
   computed: {
     currentDate() {
@@ -271,9 +271,13 @@ export default {
       }
     },
     async printDailyReport() {
-      if (this.isPrinting) return; // Prevent multiple prints
+      if (this.isPrinting) {
+        console.log("Print attempt blocked: already printing");
+        return Promise.resolve();
+      }
       this.isPrinting = true;
       try {
+        console.log("Starting printDailyReport");
         await this.$nextTick();
         if (!this.$refs.reportContent?.getPrintContent) {
           throw new Error(__("Daily Report component or getPrintContent method is not available"));
@@ -286,14 +290,42 @@ export default {
         if (!printWindow) {
           throw new Error(__("Unable to open print window. Please allow pop-ups."));
         }
+        console.log("Print window opened");
         printWindow.document.write(printContent);
         printWindow.document.close();
-        printWindow.focus();
-        setTimeout(() => {
-          printWindow.print();
-          printWindow.close();
-        }, 500);
+        return new Promise((resolve, reject) => {
+          printWindow.onload = () => {
+            console.log("Print window content loaded");
+            printWindow.focus();
+            setTimeout(() => {
+              console.log("Triggering print");
+              printWindow.print();
+              printWindow.onafterprint = () => {
+                console.log("Print job completed or canceled");
+                printWindow.close();
+                resolve();
+              };
+              // Fallback for browsers without reliable onafterprint
+              setTimeout(() => {
+                if (!printWindow.closed) {
+                  console.log("Closing print window via timeout");
+                  printWindow.close();
+                }
+                resolve();
+              },); // Close after 3s if onafterprint doesn't fire
+            },); // Increased delay for rendering
+          };
+          // Handle window load failure
+          setTimeout(() => {
+            if (!printWindow.document.readyState === "complete") {
+              console.error("Print window failed to load");
+              printWindow.close();
+              reject(new Error("Print window failed to load"));
+            }
+          }, 1000);
+        });
       } catch (err) {
+        console.error("Error printing daily report:", err);
         frappe.msgprint({
           title: __("Error"),
           indicator: "red",
@@ -302,6 +334,7 @@ export default {
         throw err;
       } finally {
         this.isPrinting = false;
+        console.log("Print process completed");
       }
     },
     async logoutAndRedirect() {
