@@ -61,22 +61,28 @@
 
     <div class="section-title">Closing Shift Settlement</div>
     <v-simple-table class="mb-2 settlement-table">
+      <thead>
+        <tr>
+          <th class="text-left">Payment Type</th>
+          <th class="text-right">Closing</th>
+          <th class="text-right">Expected</th>
+          <th class="text-right">Diff</th>
+        </tr>
+      </thead>
       <tbody>
         <tr v-for="(values, method) in paymentMethods" :key="method">
           <td class="text-left">{{ method }}</td>
+          <td class="text-right">{{ formatCurrency(values.closing || 0) }}</td>
+          <td class="text-right">{{ formatCurrency(values.expected || 0) }}</td>
           <td class="text-right">
-            <div>Closing: {{ formatCurrency(values.closing || 0) }}</div>
-            <div>Expected: {{ formatCurrency(values.expected || 0) }}</div>
-            <div>Diff: {{ formatCurrency((values.closing != null ? values.closing : 0) - (values.expected || 0)) }}</div>
+            {{ formatCurrency((values.closing != null ? values.closing : 0) - (values.expected || 0)) }}
           </td>
         </tr>
         <tr class="total-row">
           <td><strong>Total</strong></td>
-          <td class="text-right">
-            <div>Closing: {{ formatCurrency(totalClosing) }}</div>
-            <div>Expected: {{ formatCurrency(totalExpected) }}</div>
-            <div>Diff: {{ formatCurrency(totalDifference) }}</div>
-          </td>
+          <td class="text-right"><strong>{{ formatCurrency(totalClosing) }}</strong></td>
+          <td class="text-right"><strong>{{ formatCurrency(totalExpected) }}</strong></td>
+          <td class="text-right"><strong>{{ formatCurrency(totalDifference) }}</strong></td>
         </tr>
       </tbody>
     </v-simple-table>
@@ -294,15 +300,13 @@ export default {
                 .pay-table td:last-child {
                   width: 30%;
                 }
+                .settlement-table th:first-child,
                 .settlement-table td:first-child {
-                  width: 70%;
+                  width: 50%;
                 }
-                .settlement-table td:last-child {
-                  width: 30%;
-                }
-                .settlement-table td:last-child div {
-                  font-size: 9px;
-                  line-height: 1.3;
+                .settlement-table th:not(:first-child),
+                .settlement-table td:not(:first-child) {
+                  width: 16.67%;
                 }
                 .signature-section {
                   margin-top: 8px;
@@ -492,17 +496,14 @@ th {
   width: 30%;
 }
 
+.settlement-table th:first-child,
 .settlement-table td:first-child {
-  width: 70%;
+  width: 50%;
 }
 
-.settlement-table td:last-child {
-  width: 30%;
-}
-
-.settlement-table td:last-child div {
-  font-size: 9px;
-  line-height: 1.3;
+.settlement-table th:not(:first-child),
+.settlement-table td:not(:first-child) {
+  width: 16.67%;
 }
 
 .total-row {
