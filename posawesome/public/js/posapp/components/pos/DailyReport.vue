@@ -8,7 +8,7 @@
         <span><strong>Date:</strong> {{ currentDate }}</span>
         <span class="time-right"><strong>Time:</strong> {{ currentTime }}</span>
       </div>
-      <div class="user-name-container text-left">{{ userName }}</div>
+      <div class="user-name-container text-left"><strong>POS User: </strong>{{ userName }}</div>
     </div>
 
     <div class="section-title">Pay Transactions</div>
