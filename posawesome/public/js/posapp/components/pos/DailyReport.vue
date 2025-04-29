@@ -49,22 +49,22 @@
         <tr>
           <th class="text-left">Payment Type</th>
           <th class="text-right">Closing</th>
-          <th class="text-right">Diff</th>
           <th class="text-right">Expected</th>
+          <th class="text-right">Diff</th>
         </tr>
       </thead>
       <tbody>
         <tr v-for="(values, method) in paymentMethods" :key="method">
           <td class="text-left">{{ method }}</td>
           <td class="text-right">{{ formatCurrency(values.closing || 0) }}</td>
-          <td class="text-right">{{ formatCurrency((values.closing || 0) - (values.expected || 0)) }}</td>
           <td class="text-right">{{ formatCurrency(values.expected || 0) }}</td>
+          <td class="text-right">{{ formatCurrency((values.closing || 0) - (values.expected || 0)) }}</td>
         </tr>
         <tr class="total-row">
           <td>Total</td>
           <td class="text-right">{{ formatCurrency(totals.closingTotal) }}</td>
-          <td class="text-right">{{ formatCurrency(totals.differenceTotal) }}</td>
           <td class="text-right">{{ formatCurrency(totals.expectedTotal) }}</td>
+          <td class="text-right">{{ formatCurrency(totals.differenceTotal) }}</td>
         </tr>
       </tbody>
     </v-simple-table>
@@ -186,14 +186,15 @@ export default {
               <style>
                 :root {
                   --page-width: 80mm;
-                  --margin: 2mm;
+                  --margin: 8mm;
+                  --padding: 8mm;
                   --font-size: 10px;
                   --border-color: #000;
                   --border-table: 1.5px solid var(--border-color);
                   --border-signature: 2px solid var(--border-color);
                 }
                 @page { size: var(--page-width) auto; margin: var(--margin); }
-                body { font-family: Arial, sans-serif; margin: 0; padding: var(--margin); width: var(--page-width); font-size: var(--font-size); line-height: 1.2; }
+                body { font-family: Arial, sans-serif; margin: 0; padding: var(--padding); width: var(--page-width); font-size: var(--font-size); line-height: 1.2; }
                 h1 { font-size: 16px; font-weight: bold; margin: 0 0 2px; text-align: center; }
                 .profile-name, .user-name-container, .subtitle { font-size: var(--font-size); }
                 .profile-name { margin-bottom: 2px; text-align: center; }
@@ -216,7 +217,7 @@ export default {
                 .signature-section { margin-top: 48px; text-align: center; }
                 .signature-line { border-top: var(--border-signature); margin: 0 auto 4px; width: 100%; }
                 @media print {
-                  body { margin: 0; padding: var(--margin); width: var(--page-width); }
+                  body { margin: 0; padding: var(--padding); width: var(--page-width); }
                   .v-sheet, .v-table { box-shadow: none !important; border: none !important; }
                   .v-table__wrapper table th, .v-table__wrapper table td { border: var(--border-table); border-top: none !important; }
                   .v-table__wrapper > table { border-spacing: 0; }
@@ -250,16 +251,17 @@ export default {
 <style scoped>
 .report-preview {
   --page-width: 80mm;
-  --margin: 2mm;
+  --margin: 8mm;
+  --padding: 8mm;
   --font-size: 10px;
   --border-color: #000;
   --border-table: 1.5px solid var(--border-color);
   --border-signature: 2px solid var(--border-color);
   background: white;
   color: black;
-  padding: var(--margin);
+  padding: var(--padding);
   width: var(--page-width);
-  margin: 0 auto;
+  margin: var(--margin) auto;
   font-family: Arial, sans-serif;
   font-size: var(--font-size);
   line-height: 1.2;
@@ -267,7 +269,7 @@ export default {
 h1 { font-size: 16px; font-weight: bold; margin: 0 0 2px; }
 .profile-name, .user-name-container, .subtitle { font-size: var(--font-size); }
 .profile-name { margin-bottom: 2px; text-align: center; }
-.user-name-container { margin-bottom: 4px; text-align: left;font-weight: 600;}
+.user-name-container { margin-bottom: 4px; text-align: left; font-weight: 600; }
 .subtitle { color: #555; margin-bottom: 4px; text-align: center; }
 .date-time { display: flex; justify-content: space-between; margin-bottom: 4px; }
 .section-title { font-size: 12px; font-weight: bold; margin: 4px 0 2px; padding-bottom: 2px; border-bottom: 1px solid var(--border-color); }
